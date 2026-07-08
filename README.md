@@ -1,6 +1,6 @@
 # Market Intelligence Platform
 
-A production-style **Data Engineering** project that ingests marketplace data, builds a metadata-driven Medallion Architecture, and delivers business-ready analytical datasets.
+A production-style **Data Engineering** project that ingests Ebay marketplace data (via official API), builds a metadata-driven Medallion Architecture, and delivers business-ready analytical datasets.
 
 ## Objective
 
