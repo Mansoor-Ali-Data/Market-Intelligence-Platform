@@ -4,3 +4,24 @@ api:
   method: "GET"
   marketplace: "EBAY_US"
   page_size: 200
+
+authentication:
+  type: oauth2_client_credentials
+  access_token_url: "https://api.ebay.com/identity/v1/oauth2/token"
+
+bootstrap:
+  enabled: true
+  start_date: "2026-01-01"
+  end_date: null
+
+pipeline:
+  pipeline_name: "ebay_browse_ingestion"
+  dataset_name: "ebay"
+  file_format: "parquet"
+
+
+destination:
+  bucket: market-intelligence-raw
+  path_template: "ebay/browse_search/year={year}/month={month}/day={day}"
+
+
