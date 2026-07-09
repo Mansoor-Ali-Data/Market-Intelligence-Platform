@@ -1,0 +1,6 @@
+api:
+  base_url: "https://api.ebay.com"
+  endpoint: "/buy/browse/v1/item_summary/search"
+  method: "GET"
+  marketplace: "EBAY_US"
+  page_size: 200
