@@ -14,7 +14,6 @@ The goal of this project is to demonstrate modern Data Engineering best practice
 - PySpark & Databricks
 - Business Data Marts
 
-> **Note:** Machine Learning and Opportunity Scoring are intentionally out of scope for the MVP.
 
 ---
 
@@ -33,16 +32,16 @@ The goal of this project is to demonstrate modern Data Engineering best practice
 ## High-Level Architecture
 
 ```
-eBay Browse API
+Official eBay API (Browse API)
         │
         ▼
-     DLTHub
+     DLTHub  (Ingestion Pipeline)
         │
         ▼
-GCS (Raw Bucket)
+GCS (Raw Bucket) (Storage Layer)
         │
         ▼
-Metadata-Driven PySpark Pipeline
+Metadata-Driven PySpark Pipeline (Transformation Layer)
         │
  ┌──────┼──────┐
  ▼      ▼      ▼
