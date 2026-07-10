@@ -1,0 +1,161 @@
+categories:
+  - name: Electronics
+    enabled: true
+
+    subcategories:
+
+      - name: Computers, Tablets & Network Hardware
+
+        queries:
+          - name: laptop
+            enabled: true
+            search: "(laptop, notebook ,gaming laptop, business laptop, ultrabook , professional laptop, chromebook, macbook)"
+
+          - name: desktop
+            enabled: true
+            search: "(desktop, desktop computer, prebuilt pc, prebuilt workstation pc)"
+
+          - name: tablet
+            enabled: true
+            search: "(tablet, tablet pc)"
+
+          - name: cpu
+            enabled: true
+            search: "(cpu, processor)"
+
+          - name: gpu
+            enabled: true
+            search: "(gpu, graphics card, video card, RTX , Radeon)"
+
+          - name: motherboard
+            enabled: true
+            search: "(motherboard, mainboard)"
+
+          - name: ram
+            enabled: true
+            search: "(ram, computer memory, rgb ram, ddr4 ram, ddr5 ram)"
+
+          - name: ssd
+            enabled: true
+            search: "(ssd, solid state drive)"
+
+          - name: hard_drive
+            enabled: true
+            search: "(hard drive, hdd)"
+
+          - name: keyboard
+            enabled: true
+            search: "(keyboard, mechanical keyboard, gaming keyboard)"
+
+          - name: mouse
+            enabled: true
+            search: "(mouse, computer mouse, gaming mouse)"
+
+      
+      - name: Video Games & Consoles
+        
+        queries:
+          
+          - name: console
+            enabled: true
+            search: "(console, gaming console)"
+          
+          - name: playstation
+            enabled: true
+            search: "(playstation 5, ps5, playstation 4, ps4, playstation)"
+          
+          - name: xbox
+            enabled: true
+            search: "(xbox, xbox series x, xbox series s)"
+          
+          - name: nintendo
+            enabled: true
+            search: "(nintendo, nintendo switch, nintendo switch 2)"
+          
+          - name: steam_deck
+            enabled: true
+            search: "(steam deck)"
+          
+          - name: steam_machine
+            enabled: true
+            search: "(steam machine, steam console)"
+          
+          - name: game_controller
+            enabled: true
+            search: "(game controller, gaming controller)"
+          
+          - name: headset
+            enabled: true
+            search: "(headset, gaming headset)"
+          
+          - name: virtual_reality
+            enabled: true
+            search: "(virtual reality, vr)"
+          
+          - name: gaming_keyboard
+            enabled: true
+            search: "(gaming keyboard, mechanical keyboard)"
+          
+          - name: gaming_mouse
+            enabled: true
+            search: "(gaming mouse, esports mouse)"
+          
+          - name: video_game
+            enabled: true
+            search: "(video game, pc game)"
+          
+          - name: game_disc
+            enabled: true
+            search: "(game disc, video game disc, physical game disc)"
+
+      - name: Cameras & Photo
+
+        queries:
+          
+          - name: digital_camera
+            enabled: true
+            search: "(digital camera, dslr camera, mirrorless camera)"
+
+          - name: film_camera
+            enabled: true
+            search: "(film camera, analog camera)"
+
+          - name: camera_drone
+            enabled: true
+            search: "(camera drone, drone)"
+
+          - name: camcorder
+            enabled: true
+            search: "(camcorder, video camera)"
+
+          - name: vintage_camera
+            enabled: true
+            search: "(vintage camera)"
+
+          - name: camera_lens
+            enabled: true
+            search: "(camera lens, lens)"
+
+          - name: camera_filter
+            enabled: true
+            search: "(camera filter, lens filter)"
+
+          - name: camera_accessory
+            enabled: true
+            search: "(camera accessory, camera accessories)"
+
+          - name: tripod
+            enabled: true
+            search: "(tripod, camera tripod)"
+
+          - name: binocular
+            enabled: true
+            search: "(binocular, binoculars)"
+
+          - name: telescope
+            enabled: true
+            search: "(telescope)"
+
+          - name: action_camera
+            enabled: true
+            search: "(action camera, action cam)"
