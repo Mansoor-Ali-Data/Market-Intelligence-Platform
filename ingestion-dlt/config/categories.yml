@@ -1,9 +1,10 @@
+# Category configuration for data ingestion
 categories:
   - name: Electronics
     enabled: true
-
+    # Specific subcategories within Electronics for targeted data ingestion
     subcategories:
-
+        # Subcategory: Computers, Tablets & Network Hardware
       - name: Computers, Tablets & Network Hardware
 
         queries:
@@ -51,7 +52,7 @@ categories:
             enabled: true
             search: "(mouse, computer mouse, gaming mouse)"
 
-      
+        # Subcategory: Video Games & Consoles
       - name: Video Games & Consoles
         
         queries:
@@ -107,7 +108,8 @@ categories:
           - name: game_disc
             enabled: true
             search: "(game disc, video game disc, physical game disc)"
-
+      
+        # Subcategory: Cameras & Photo
       - name: Cameras & Photo
 
         queries:
