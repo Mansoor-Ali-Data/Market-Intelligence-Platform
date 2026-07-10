@@ -5,6 +5,12 @@ api:
   marketplace: "EBAY_US"
   page_size: 200
 
+  parameters:
+    search: "q"
+    page_size: "limit"
+    offset: "offset"
+    filter: "filter"
+
 authentication:
   type: oauth2_client_credentials
   access_token_url: "https://api.ebay.com/identity/v1/oauth2/token"
