@@ -1,3 +1,4 @@
+# API connection and data endpoint configuration 
 api:
   base_url: "https://api.ebay.com"
   endpoint: "/buy/browse/v1/item_summary/search"
@@ -5,29 +6,33 @@ api:
   marketplace: "EBAY_US"
   page_size: 200
 
+  # Mapping of internal keys to eBay API query parameters
   parameters:
     search: "q"
     page_size: "limit"
     offset: "offset"
     filter: "filter"
 
+# Authentication mechanism for secure API access
 authentication:
   type: oauth2_client_credentials
   access_token_url: "https://api.ebay.com/identity/v1/oauth2/token"
+  access_token_request_data:
+    scope: https://api.ebay.com/oauth/api_scope
 
+# Historical backfill and initial data loading setup
 bootstrap:
   enabled: true
   start_date: "2026-01-01"
   end_date: null
 
+# Data ingestion pipeline configuration
 pipeline:
   pipeline_name: "ebay_browse_ingestion"
   dataset_name: "ebay"
-  file_format: "parquet"
 
-
-destination:
-  bucket: market-intelligence-raw
-  path_template: "ebay/browse_search/year={year}/month={month}/day={day}"
+# Data storage and Partitioning Scheme
+storage:
+  partitioning: "ebay/browse_search/year={year}/month={month}/day={day}" # Hive-style partitioning 
 
 
