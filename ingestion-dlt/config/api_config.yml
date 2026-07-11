@@ -15,10 +15,12 @@ api:
 
 # Authentication mechanism for secure API access
 authentication:
-  type: oauth2_client_credentials
+  type: ebay_oauth
   access_token_url: "https://api.ebay.com/identity/v1/oauth2/token"
-  access_token_request_data:
-    scope: https://api.ebay.com/oauth/api_scope
+  grant_type: client_credentials
+  scope: https://api.ebay.com/oauth/api_scope
+  token_expiration: 7200
+  marketplace_id: EBAY_US
 
 # Historical backfill and initial data loading setup
 bootstrap:
