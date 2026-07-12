@@ -15,10 +15,10 @@ import dlt
 import yaml
 from dotenv import load_dotenv
 from utils.config_loader import load_config
-from dlt.sources.helpers.rest_client.auth import OAuth2ClientCredentials
+
+from sources.ebay_auth import EbayAuth
 from dlt.sources.rest_api import rest_api_source
-import base64
-import requests
+
 
 from utils.project_paths import (
     PROJECT_ROOT,
@@ -58,15 +58,19 @@ def ebay_source():
     # Load client ID and client secret from environment variables
     client_id = os.getenv("EBAY_CLIENT_ID")
     client_secret = os.getenv("EBAY_CLIENT_SECRET")
-    print(f"Client ID loaded: {bool(client_id)}")
-    print(f"Client Secret loaded: {bool(client_secret)}")
+    print(f"Client ID loaded: {'Credentials loaded successfully' if client_id else 'Failed to load credentials'}")
+    print(f"Client Secret loaded: {'Credentials loaded successfully' if client_secret else 'Failed to load credentials'}")
     
-    oauth = OAuth2ClientCredentials(
-        access_token_url=auth_config["access_token_url"],
-        client_id=client_id,
-        client_secret=client_secret,
-        access_token_request_data=auth_config["access_token_request_data"],
-    )
+    # Initialize the custom eBay OAuth authenticator
+    oauth = EbayAuth(
+    client_id=client_id,
+    client_secret=client_secret,
+    token_url=auth_config["access_token_url"],
+    scope=auth_config["scope"],
+    grant_type=auth_config["grant_type"],
+    marketplace_id=auth_config["marketplace_id"],
+    token_expiration=auth_config["token_expiration"],
+)
 
     # ------------------------------------------
     # API Client
@@ -80,18 +84,25 @@ def ebay_source():
     
     search_query = "laptop"  # Example query for testing purposes
     
+    
     # Resource configuration for the eBay Browse Search API
     resource_config = {
         "name": "browse_search",
         "endpoint": {
-            "path": api["endpoint"],
-            "method": api["method"],
-            "params": {
-                "q": search_query,
-                "limit": 10,
-            }
-        }
+           "path": api["endpoint"],
+           "method": api["method"],
+           "params": {
+              "q": search_query,
+              "limit": 10, # Tells eBay to send 10 items
+        },
+        # FIX: Tells dlt to stop after the first response
+        "paginator": "single_page", 
+        
+        # PRO TIP: eBay usually wraps results in a key called 'itemSummaries'. 
+        # If you add this, dlt will extract just the products, not the whole wrapper.
+        "data_selector": "itemSummaries" 
     }
+}
     
     # REST API configuration
     rest_api_config = {
