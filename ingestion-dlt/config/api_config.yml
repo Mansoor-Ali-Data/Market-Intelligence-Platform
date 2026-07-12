@@ -33,8 +33,3 @@ pipeline:
   pipeline_name: "ebay_browse_ingestion"
   dataset_name: "ebay"
 
-# Data storage and Partitioning Scheme
-storage:
-  partitioning: "ebay/browse_search/year={year}/month={month}/day={day}" # Hive-style partitioning 
-
-
