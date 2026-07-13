@@ -34,7 +34,6 @@ pipeline_config = api_config["pipeline"]
 # ------------------------------------------
 def run_pipeline():
     
-    partition_layout = api_config["storage"]["partitioning"]
     pipeline = dlt.pipeline(
         pipeline_name=pipeline_config["pipeline_name"],
         destination="filesystem",
