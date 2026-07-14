@@ -16,7 +16,7 @@ import yaml
 from dotenv import load_dotenv
 from utils.config_loader import load_config
 
-from sources.ebay_auth import EbayAuth
+from dlt.sources.helpers.rest_client.auth import OAuth2ClientCredentials
 from dlt.sources.rest_api import rest_api_source
 
 
@@ -61,16 +61,16 @@ def ebay_source():
     print(f"Client ID loaded: {'Credentials loaded successfully' if client_id else 'Failed to load credentials'}")
     print(f"Client Secret loaded: {'Credentials loaded successfully' if client_secret else 'Failed to load credentials'}")
     
-    # Initialize the custom eBay OAuth authenticator
-    oauth = EbayAuth(
-    client_id=client_id,
-    client_secret=client_secret,
-    token_url=auth_config["access_token_url"],
-    scope=auth_config["scope"],
-    grant_type=auth_config["grant_type"],
-    marketplace_id=auth_config["marketplace_id"],
-    token_expiration=auth_config["token_expiration"],
-)
+    # Updated By Me (First open source contribution to dlt!):
+    oauth = OAuth2ClientCredentials(
+        client_id=client_id,
+        client_secret=client_secret,
+        access_token_url=auth_config["access_token_url"],
+        access_token_request_data={
+            "scope": auth_config["scope"]
+        },
+        client_auth_method="client_secret_basic" # <-- My PR in action
+    )
 
     # ------------------------------------------
     # API Client
@@ -95,7 +95,7 @@ def ebay_source():
               "q": search_query,
               "limit": 10, # Tells eBay to send 10 items
         },
-        # FIX: Tells dlt to stop after the first response
+        # Tells dlt to stop after the first response
         "paginator": "single_page", 
         
         # PRO TIP: eBay usually wraps results in a key called 'itemSummaries'. 
