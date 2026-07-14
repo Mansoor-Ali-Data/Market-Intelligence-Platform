@@ -1,163 +1,282 @@
-# Category configuration for data ingestion
+# ============================================================================
+# Category Configuration
+# ============================================================================
+# Purpose:
+#   Defines business categories and search expressions used during eBay
+#   Browse API ingestion.
+#
+# Design Principles:
+#   - Business metadata only
+#   - No API implementation logic
+#   - No authentication
+#   - No pagination
+#   - Metadata-driven ingestion
+#
+# Notes:
+#   id               : Stable machine identifier
+#   name             : Human-readable display name
+#   enabled          : Enable/disable ingestion
+#   priority         : Controls ingestion order
+#   ebay_category_id : Reserved for future Taxonomy integration
+#   search           : Native eBay Browse Search query expression
+# ============================================================================
+
 categories:
-  - name: Electronics
+
+  - id: electronics
+    name: Electronics
     enabled: true
-    # Specific subcategories within Electronics for targeted data ingestion
+
     subcategories:
-        # Subcategory: Computers, Tablets & Network Hardware
-      - name: Computers, Tablets & Network Hardware
+
+      # ==========================================================
+      # Computers, Tablets & Network Hardware
+      # ==========================================================
+
+      - id: computers
+        name: Computers, Tablets & Network Hardware
+        enabled: true
+        priority: 1
+        ebay_category_id: null
 
         queries:
-          - name: laptop
-            enabled: true
-            search: "(laptop, notebook ,gaming laptop, business laptop, ultrabook , professional laptop, chromebook, macbook)"
 
-          - name: desktop
+          - id: laptop
+            name: Laptop
             enabled: true
+            priority: 1
+            search: "(laptop, notebook, gaming laptop, business laptop, ultrabook, professional laptop, chromebook, macbook)"
+
+          - id: desktop
+            name: Desktop
+            enabled: true
+            priority: 2
             search: "(desktop, desktop computer, prebuilt pc, prebuilt workstation pc)"
 
-          - name: tablet
+          - id: tablet
+            name: Tablet
             enabled: true
+            priority: 3
             search: "(tablet, tablet pc)"
 
-          - name: cpu
+          - id: cpu
+            name: CPU
             enabled: true
+            priority: 4
             search: "(cpu, processor)"
 
-          - name: gpu
+          - id: gpu
+            name: GPU
             enabled: true
-            search: "(gpu, graphics card, video card, RTX , Radeon)"
+            priority: 5
+            search: "(gpu, graphics card, video card, RTX, Radeon)"
 
-          - name: motherboard
+          - id: motherboard
+            name: Motherboard
             enabled: true
+            priority: 6
             search: "(motherboard, mainboard)"
 
-          - name: ram
+          - id: ram
+            name: RAM
             enabled: true
+            priority: 7
             search: "(ram, computer memory, rgb ram, ddr4 ram, ddr5 ram)"
 
-          - name: ssd
+          - id: ssd
+            name: SSD
             enabled: true
+            priority: 8
             search: "(ssd, solid state drive)"
 
-          - name: hard_drive
+          - id: hard_drive
+            name: Hard Drive
             enabled: true
+            priority: 9
             search: "(hard drive, hdd)"
 
-          - name: keyboard
+          - id: keyboard
+            name: Keyboard
             enabled: true
+            priority: 10
             search: "(keyboard, mechanical keyboard, gaming keyboard)"
 
-          - name: mouse
+          - id: mouse
+            name: Mouse
             enabled: true
+            priority: 11
             search: "(mouse, computer mouse, gaming mouse)"
 
-        # Subcategory: Video Games & Consoles
-      - name: Video Games & Consoles
-        
-        queries:
-          
-          - name: console
-            enabled: true
-            search: "(console, gaming console)"
-          
-          - name: playstation
-            enabled: true
-            search: "(playstation 5, ps5, playstation 4, ps4, playstation)"
-          
-          - name: xbox
-            enabled: true
-            search: "(xbox, xbox series x, xbox series s)"
-          
-          - name: nintendo
-            enabled: true
-            search: "(nintendo, nintendo switch, nintendo switch 2)"
-          
-          - name: steam_deck
-            enabled: true
-            search: "(steam deck)"
-          
-          - name: steam_machine
-            enabled: true
-            search: "(steam machine, steam console)"
-          
-          - name: game_controller
-            enabled: true
-            search: "(game controller, gaming controller)"
-          
-          - name: headset
-            enabled: true
-            search: "(headset, gaming headset)"
-          
-          - name: virtual_reality
-            enabled: true
-            search: "(virtual reality, vr)"
-          
-          - name: gaming_keyboard
-            enabled: true
-            search: "(gaming keyboard, mechanical keyboard)"
-          
-          - name: gaming_mouse
-            enabled: true
-            search: "(gaming mouse, esports mouse)"
-          
-          - name: video_game
-            enabled: true
-            search: "(video game, pc game)"
-          
-          - name: game_disc
-            enabled: true
-            search: "(game disc, video game disc, physical game disc)"
-      
-        # Subcategory: Cameras & Photo
-      - name: Cameras & Photo
+      # ==========================================================
+      # Video Games & Consoles
+      # ==========================================================
+
+      - id: gaming
+        name: Video Games & Consoles
+        enabled: true
+        priority: 2
+        ebay_category_id: null
 
         queries:
-          
-          - name: digital_camera
+
+          - id: console
+            name: Gaming Console
             enabled: true
+            priority: 1
+            search: "(console, gaming console)"
+
+          - id: playstation
+            name: PlayStation
+            enabled: true
+            priority: 2
+            search: "(playstation 5, ps5, playstation 4, ps4, playstation)"
+
+          - id: xbox
+            name: Xbox
+            enabled: true
+            priority: 3
+            search: "(xbox, xbox series x, xbox series s)"
+
+          - id: nintendo
+            name: Nintendo
+            enabled: true
+            priority: 4
+            search: "(nintendo, nintendo switch, nintendo switch 2)"
+
+          - id: steam_deck
+            name: Steam Deck
+            enabled: true
+            priority: 5
+            search: "(steam deck)"
+
+          - id: steam_machine
+            name: Steam Machine
+            enabled: true
+            priority: 6
+            search: "(steam machine, steam console)"
+
+          - id: game_controller
+            name: Game Controller
+            enabled: true
+            priority: 7
+            search: "(game controller, gaming controller)"
+
+          - id: headset
+            name: Gaming Headset
+            enabled: true
+            priority: 8
+            search: "(headset, gaming headset)"
+
+          - id: virtual_reality
+            name: Virtual Reality
+            enabled: true
+            priority: 9
+            search: "(virtual reality, vr)"
+
+          - id: gaming_keyboard
+            name: Gaming Keyboard
+            enabled: true
+            priority: 10
+            search: "(gaming keyboard, mechanical keyboard)"
+
+          - id: gaming_mouse
+            name: Gaming Mouse
+            enabled: true
+            priority: 11
+            search: "(gaming mouse, esports mouse)"
+
+          - id: video_game
+            name: Video Game
+            enabled: true
+            priority: 12
+            search: "(video game, pc game)"
+
+          - id: game_disc
+            name: Game Disc
+            enabled: true
+            priority: 13
+            search: "(game disc, video game disc, physical game disc)"
+
+      # ==========================================================
+      # Cameras & Photo
+      # ==========================================================
+
+      - id: cameras_photo
+        name: Cameras & Photo
+        enabled: true
+        priority: 3
+        ebay_category_id: null
+
+        queries:
+
+          - id: digital_camera
+            name: Digital Camera
+            enabled: true
+            priority: 1
             search: "(digital camera, dslr camera, mirrorless camera)"
 
-          - name: film_camera
+          - id: film_camera
+            name: Film Camera
             enabled: true
+            priority: 2
             search: "(film camera, analog camera)"
 
-          - name: camera_drone
+          - id: camera_drone
+            name: Camera Drone
             enabled: true
+            priority: 3
             search: "(camera drone, drone)"
 
-          - name: camcorder
+          - id: camcorder
+            name: Camcorder
             enabled: true
+            priority: 4
             search: "(camcorder, video camera)"
 
-          - name: vintage_camera
+          - id: vintage_camera
+            name: Vintage Camera
             enabled: true
+            priority: 5
             search: "(vintage camera)"
 
-          - name: camera_lens
+          - id: camera_lens
+            name: Camera Lens
             enabled: true
+            priority: 6
             search: "(camera lens, lens)"
 
-          - name: camera_filter
+          - id: camera_filter
+            name: Camera Filter
             enabled: true
+            priority: 7
             search: "(camera filter, lens filter)"
 
-          - name: camera_accessory
+          - id: camera_accessory
+            name: Camera Accessory
             enabled: true
+            priority: 8
             search: "(camera accessory, camera accessories)"
 
-          - name: tripod
+          - id: tripod
+            name: Tripod
             enabled: true
+            priority: 9
             search: "(tripod, camera tripod)"
 
-          - name: binocular
+          - id: binocular
+            name: Binocular
             enabled: true
+            priority: 10
             search: "(binocular, binoculars)"
 
-          - name: telescope
+          - id: telescope
+            name: Telescope
             enabled: true
+            priority: 11
             search: "(telescope)"
 
-          - name: action_camera
+          - id: action_camera
+            name: Action Camera
             enabled: true
+            priority: 12
             search: "(action camera, action cam)"
