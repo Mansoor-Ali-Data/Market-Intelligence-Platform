@@ -1,0 +1,21 @@
+# Virtual Environment
+.venv/
+
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+
+# DLT
+.dlt/
+
+# IDE
+.vscode/
+
+# Logs
+*.log
+
+
+secrets.toml
