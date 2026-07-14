@@ -41,3 +41,63 @@ def load_config(config_file: Path) -> dict:
         )
 
     return config
+
+# ============================================================================
+# Metadata Helper Functions
+# ============================================================================
+
+def get_enabled_categories(categories_config: dict) -> list[dict]:
+    """
+    Return all enabled categories.
+
+    Args:
+        categories_config:
+            Parsed categories.yml configuration.
+
+    Returns:
+        List of enabled categories.
+    """
+
+    return [
+        category
+        for category in categories_config["categories"]
+        if category.get("enabled", False)
+    ]
+
+
+def get_enabled_subcategories(category: dict) -> list[dict]:
+    """
+    Return all enabled subcategories for a category.
+
+    Args:
+        category:
+            Category dictionary.
+
+    Returns:
+        List of enabled subcategories.
+    """
+
+    return [
+        subcategory
+        for subcategory in category["subcategories"]
+        if subcategory.get("enabled", True)
+    ]
+
+
+def get_enabled_queries(subcategory: dict) -> list[dict]:
+    """
+    Return all enabled search queries for a subcategory.
+
+    Args:
+        subcategory:
+            Subcategory dictionary.
+
+    Returns:
+        List of enabled search queries.
+    """
+
+    return [
+        query
+        for query in subcategory["queries"]
+        if query.get("enabled", True)
+    ]
