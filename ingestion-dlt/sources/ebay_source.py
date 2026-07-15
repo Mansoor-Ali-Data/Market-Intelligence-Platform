@@ -39,7 +39,39 @@ from utils.project_paths import (
 load_dotenv(PROJECT_ROOT / ".env")
 
 
+# --------------------------------------------------
+# Parent Resource
+# --------------------------------------------------
 
+@dlt.resource(name="search_queries")
+def search_queries(categories_config: dict):
+    """
+    Generate all enabled search queries from categories.yml.
+
+    This resource is consumed by the Browse Search resource
+    using dlt's 'resolve' parameter type.
+    """
+
+    for category in get_enabled_categories(categories_config):
+
+        for subcategory in get_enabled_subcategories(category):
+
+            for query in get_enabled_queries(subcategory):
+
+                yield {
+
+                    # Updated: Preserve metadata for future lineage/logging
+                    "category_id": category["id"],
+
+                    # Updated
+                    "subcategory_id": subcategory["id"],
+
+                    # Updated
+                    "query_id": query["id"],
+
+                    # Updated
+                    "search": query["search"],
+                }
 
 # --------------------------------------------------
 # DLT Source
@@ -87,42 +119,58 @@ def ebay_source():
         "base_url": api["base_url"],
         "auth": oauth,
     }
-    
+
     # ------------------------------------------
-    # Build Resource Configurations
+    # Build Browse Search Resource
     # ------------------------------------------
 
-    resources = []
+    resource_config = {
 
-    for category in get_enabled_categories(categories_config):
+    # Single logical Browse Search resource.
+    "name": "browse_search",
 
-        for subcategory in get_enabled_subcategories(category):
+    "endpoint": {
 
-            for query in get_enabled_queries(subcategory):
+        "path": api["endpoint"],
+        "method": api["method"],
 
-                resource = {
-                    "name": f"{subcategory['id']}_{query['id']}",
-                    "endpoint": {
-                        "path": api["endpoint"],
-                        "method": api["method"],
-                        "params": {
-                            "q": query["search"],
-                            "limit": 10,
-                        },
-                        "paginator": "single_page",
-                        "data_selector": "itemSummaries",
-                    },
-                }
+        "params": {
 
-                resources.append(resource)
-    
+            # Resolve one search parameter for every record
+            # yielded by search_queries().
+            "q": {
+                "type": "resolve",
+                "resource": "search_queries",
+                "field": "search",
+            },
+
+            # Read from API metadata instead of hardcoding.
+            "limit": api["default_limit"],
+        },
+
+        # Metadata-driven API configuration.
+        "paginator": api["paginator"],
+        "data_selector": api["data_selector"],
+    },
+}
     
     
     
     # REST API configuration
     rest_api_config = {
-        "client": client_config,
-        "resources": resources,
-    }
+
+    "client": client_config,
+    "resources": [
+     # Single Browse Search resource.
+        resource_config
+    ],
+}
     
-    return rest_api_source(rest_api_config)
+    
+    # Include the parent resource so DLT can resolve the search parameter.
+    return [
+
+    search_queries(categories_config),
+    rest_api_source(rest_api_config),
+
+]
