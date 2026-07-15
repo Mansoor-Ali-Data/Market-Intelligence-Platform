@@ -5,6 +5,9 @@ api:
   method: "GET"
   marketplace: "EBAY_US"
   page_size: 200
+  default_limit: 200
+  paginator: multi_page
+  data_selector: itemSummaries
 
   # Mapping of internal keys to eBay API query parameters
   parameters:
