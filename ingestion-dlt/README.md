@@ -1,95 +1,72 @@
+# Project Directory Structure
+
+```text
 ingestion-dlt/
-│
 ├── config/
-│   │
 │   ├── api_config.yml
-│   │   Purpose:
-│   │   - Stores API-specific ingestion configuration.
-│   │   - Defines marketplace, endpoints, bootstrap date,
-│   │     request parameters, destination settings, etc.
-│   │   - No secrets.
-│   │   - Read by the pipeline at runtime.
-│   │
-│   ├── categories.yml
-│   │   Purpose:
-│   │   - Defines business categories and search terms.
-│   │   - Enables/disables categories.
-│   │   - Makes category expansion configuration-driven.
-│   │
-│
+│   └── categories.yml
 ├── pipelines/
-│   │
 │   └── ebay_pipeline.py
-│       Purpose:
-│       - Creates the DLT pipeline.
-│       - Configures destination (filesystem → GCS).
-│       - Executes the configured source.
-│       - Contains pipeline orchestration only.
-│
-│
 ├── sources/
-│   │
 │   └── ebay_source.py
-│       Purpose:
-│       - Defines the DLT Source.
-│       - Uses the Verified rest_api source.
-│       - Reads API configuration.
-│       - Contains NO business logic.
-│
-│
 ├── utils/
-│   │
-│   ├── Purpose:
-│   │   - Shared helper functions.
-│   │   - YAML loader.
-│   │   - Date helpers.
-│   │   - Logging helpers (if ever needed).
-│   │
-│
 ├── .env
-│   Purpose:
-│   - Environment variables.
-│   - OAuth credentials.
-│   - GCS bucket.
-│   - Service account path.
-│   - Never committed.
-│
-│
 ├── .gitignore
-│   Purpose:
-│   - Ignore secrets.
-│   - Ignore .venv.
-│   - Ignore DLT state.
-│
-│
 ├── pyproject.toml
-│   Purpose:
-│   - Project metadata.
-│   - Python dependencies.
-│   - UV configuration.
-│
-│
 ├── uv.lock
-│   Purpose:
-│   - Locked dependency versions.
-│   - Ensures reproducible environments.
-│
-│
 ├── .python-version
-│   Purpose:
-│   - Defines Python version used by UV.
-│
-│
 ├── README.md
-│   Purpose:
-│   - Project overview.
-│   - Setup instructions.
-│   - Architecture.
-│
-│
 └── run_pipeline.py
-    Purpose:
-    - Project entry point.
-    - Loads configuration.
-    - Creates the pipeline.
-    - Executes ingestion.
+```
+
+---
+
+## Component Details
+
+### 📂 `config/`
+*   **`api_config.yml`**
+    *   Stores API-specific ingestion configurations.
+    *   Defines marketplaces, endpoints, bootstrap dates, request parameters, and destination settings.
+    *   Contains no secrets.
+    *   Read by the pipeline dynamically at runtime.
+*   **`categories.yml`**
+    *   Defines business categories and specific search terms.
+    *   Handles enabling or disabling specific categories.
+    *   Makes category expansion purely configuration-driven.
+
+### 📂 `pipelines/`
+*   **`ebay_pipeline.py`**
+    *   Initializes and configures the DLT pipeline instance.
+    *   Configures the target destination parameters (filesystem → GCS).
+    *   Executes the configured ingestion source.
+    *   Contains strictly pipeline orchestration logic.
+
+### 📂 `sources/`
+*   **`ebay_source.py`**
+    *   Defines the core DLT source components.
+    *   Leverages the verified DLT `rest_api` source.
+    *   Loads and maps the API configurations dynamically.
+    *   Contains no hardcoded business logic.
+
+### 📂 `utils/`
+*   Shared folder containing global helper functions.
+*   Includes utility scripts for YAML parsing, date formatting, and logging setup.
+
+### ⚙️ Root Project Files
+*   **`.env`**
+    *   Stores local environment variables and sensitive credentials.
+    *   Manages OAuth client keys, GCS bucket details, and service account paths.
+    *   *Must never be committed to source control.*
+*   **`.gitignore`**
+    *   Excludes private secrets, local `.venv` paths, and internal DLT state files from Git tracking.
+*   **`pyproject.toml`**
+    *   Manages project metadata, python dependencies, and tool settings for `uv`.
+*   **`uv.lock`**
+    *   Locks precise dependency versions to guarantee fully reproducible environments.
+*   **`.python-version`**
+    *   Explicitly defines the Python runtime version targeted by the `uv` tool.
+*   **`README.md`**
+    *   Provides high-level project overviews, developer setup instructions, and architecture maps.
+*   **`run_pipeline.py`**
+    *   Acts as the central entry point for the application execution.
+    *   Bootstraps runtime configurations and fires the active DLT pipeline.
