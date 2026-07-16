@@ -1,38 +1,72 @@
-# API connection and data endpoint configuration 
+# ============================================================================
+# eBay Browse Search API Configuration
+# ============================================================================
+# Purpose:
+#   Defines how the ingestion framework communicates with the eBay Browse API.
+#   Contains API behavior only.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Browse Search API Configuration
+# ----------------------------------------------------------------------------
+
 api:
+  
+  # Base endpoint information
   base_url: "https://api.ebay.com"
   endpoint: "/buy/browse/v1/item_summary/search"
   method: "GET"
-  marketplace: "EBAY_US"
-  page_size: 200
+  # eBay marketplace to query
+  marketplace_id: "EBAY_US"
   default_limit: 200
   paginator: multi_page
   data_selector: itemSummaries
+  
+  # --------------------------------------------------------------------------
+  # Incremental Discovery Configuration
+  # --------------------------------------------------------------------------
+  # dlt automatically replaces {incremental.start_value}
+  # with the latest processed itemStartDate.
+  incremental:
+    
+    cursor_path : itemStartDate
+    initial_value: "2026-01-01T00:00:00Z"
+  
 
-  # Mapping of internal keys to eBay API query parameters
+  # --------------------------------------------------------------------------
+  # Browse Search Filters
+  # --------------------------------------------------------------------------
+  filter:
+    
+    item_start_date: "itemStartDate:[{incremental.start_value}..]"
+
+  # --------------------------------------------------------------------------
+  # Internal → eBay Query Parameter Mapping
+  # --------------------------------------------------------------------------
   parameters:
+    
     search: "q"
-    page_size: "limit"
+    limit: "limit"
     offset: "offset"
     filter: "filter"
 
-# Authentication mechanism for secure API access
+# ----------------------------------------------------------------------------
+# OAuth Authentication Configuration
+# ----------------------------------------------------------------------------
 authentication:
+  
   type: ebay_oauth
   access_token_url: "https://api.ebay.com/identity/v1/oauth2/token"
   grant_type: client_credentials
   scope: https://api.ebay.com/oauth/api_scope
   token_expiration: 7200
-  marketplace_id: EBAY_US
 
-# Historical backfill and initial data loading setup
-bootstrap:
-  enabled: true
-  start_date: "2026-01-01"
-  end_date: null
 
-# Data ingestion pipeline configuration
+# ----------------------------------------------------------------------------
+# dlt Pipeline Configuration
+# ----------------------------------------------------------------------------
 pipeline:
+  
   pipeline_name: "ebay_browse_ingestion"
   dataset_name: "ebay"
 
