@@ -9,10 +9,9 @@ Responsibilities:
 """
 # Importing required libraries
 import os
-from pathlib import Path
+
 
 import dlt 
-import yaml
 from dotenv import load_dotenv
 from utils.config_loader import (
     load_config,
@@ -113,12 +112,57 @@ def ebay_source():
     # ------------------------------------------
     # API Client
     # ------------------------------------------
+    
     api = api_config["api"]
+    # ------------------------------------------
+    # API Configuration
+    # ------------------------------------------
+
+    # Query parameter mapping
+    parameters = api["parameters"]
+
+    # Incremental discovery configuration
+    incremental = api["incremental"]
+
+    # Browse Search filter configuration
+    filters = api["filter"]
 
     client_config = {
         "base_url": api["base_url"],
         "auth": oauth,
+
+        # Marketplace header applied to every Browse API request
+        "headers": {
+            "X-EBAY-C-MARKETPLACE-ID": api["marketplace_id"]
+        },
     }
+
+    # ------------------------------------------
+    # Build Browse Search Parameters
+    # ------------------------------------------
+
+    params = {
+
+        # Resolve search keyword from the parent resource
+        parameters["search"]: {
+            "type": "resolve",
+            "resource": "search_queries",
+            "field": "search",
+        },
+
+        # Maximum number of items per request
+        parameters["limit"]: api["default_limit"],
+
+        # Incremental discovery filter
+        parameters["filter"]: filters["item_start_date"],
+    }
+
+    # Add sort only if configured
+    if api.get("sort"):
+        params["sort"] = api["sort"]
+
+
+
 
     # ------------------------------------------
     # Build Browse Search Resource
@@ -126,33 +170,37 @@ def ebay_source():
 
     resource_config = {
 
-    # Single logical Browse Search resource.
-    "name": "browse_search",
+        # Single logical Browse Search resource.
+        "name": "browse_search",
 
-    "endpoint": {
+        "endpoint": {
 
-        "path": api["endpoint"],
-        "method": api["method"],
+            "path": api["endpoint"],
 
-        "params": {
+            "method": api["method"],
 
-            # Resolve one search parameter for every record
-            # yielded by search_queries().
-            "q": {
-                "type": "resolve",
-                "resource": "search_queries",
-                "field": "search",
+            # Request parameters
+            "params": params,
+
+            # -------------------------------
+            # Incremental Discovery
+            # -------------------------------
+            # dlt tracks the maximum value of
+            # itemStartDate and automatically
+            # replaces {incremental.start_value}
+            # in the filter parameter.
+            "incremental": {
+                "cursor_path": incremental["cursor_path"],
+                "initial_value": incremental["initial_value"],
             },
 
-            # Read from API metadata instead of hardcoding.
-            "limit": api["default_limit"],
-        },
+            # Pagination strategy
+            "paginator": api["paginator"],
 
-        # Metadata-driven API configuration.
-        "paginator": api["paginator"],
-        "data_selector": api["data_selector"],
-    },
-}
+            # JSON array containing the records
+            "data_selector": api["data_selector"],
+        },
+    }
     
     
     
