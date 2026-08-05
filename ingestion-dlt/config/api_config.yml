@@ -21,6 +21,7 @@ api:
   default_limit: 200
   paginator: multi_page
   data_selector: itemSummaries
+  sort: "newlyListed"
   
   # --------------------------------------------------------------------------
   # Incremental Discovery Configuration
