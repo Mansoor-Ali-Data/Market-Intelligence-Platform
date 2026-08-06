@@ -76,7 +76,7 @@ class EbayAuth(AuthConfigBase):
         try:
             response.raise_for_status()
 
-        except requests.HTTPError:
+        except requests.HTTPError as e:
             print("OAuth Error:")
             print(response.text)
             raise
@@ -94,7 +94,7 @@ class EbayAuth(AuthConfigBase):
         """
 
         # No token has been requested yet
-        if self._access_token is None:
+        if not self._access_token:
             return True
 
         # Calculate token age
