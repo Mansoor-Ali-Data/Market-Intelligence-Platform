@@ -20,7 +20,7 @@ from utils.config_loader import (
     get_enabled_queries,
 )
 
-from dlt.sources.helpers.rest_client.auth import OAuth2ClientCredentials
+from sources.ebay_auth import EbayAuth
 from dlt.sources.rest_api import rest_api_source
 
 
@@ -99,14 +99,14 @@ def ebay_source():
     print(f"Client Secret loaded: {'Credentials loaded successfully' if client_secret else 'Failed to load credentials'}")
     
     # Updated By Me (First open source contribution to dlt!):
-    oauth = OAuth2ClientCredentials(
+    oauth = EbayAuth(
         client_id=client_id,
         client_secret=client_secret,
-        access_token_url=auth_config["access_token_url"],
-        access_token_request_data={
-            "scope": auth_config["scope"]
-        },
-        client_auth_method="client_secret_basic" # <-- My PR in action
+        token_url=auth_config["access_token_url"],
+        scope=auth_config["scope"],
+        grant_type=auth_config["grant_type"],
+        marketplace_id=api["marketplace_id"],
+        token_expiration=auth_config["token_expiration"],
     )
 
     # ------------------------------------------
@@ -130,10 +130,8 @@ def ebay_source():
     client_config = {
         "base_url": api["base_url"],
         "auth": oauth,
-
-        # Marketplace header applied to every Browse API request
         "headers": {
-            "X-EBAY-C-MARKETPLACE-ID": api["marketplace_id"]
+            "X-EBAY-C-MARKETPLACE-ID": api["marketplace_id"],
         },
     }
 
