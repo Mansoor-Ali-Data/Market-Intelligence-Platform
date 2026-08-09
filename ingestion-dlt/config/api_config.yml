@@ -19,7 +19,7 @@ api:
   # eBay marketplace to query
   marketplace_id: "EBAY_US"
   default_limit: 200
-  paginator: multi_page
+  paginator: offset
   data_selector: itemSummaries
   sort: "newlyListed"
   
