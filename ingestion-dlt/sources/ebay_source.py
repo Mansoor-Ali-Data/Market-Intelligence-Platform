@@ -2,33 +2,26 @@
 DLTHub source definition for the eBay Browse Search API.
 
 Responsibilities:
+
 - Load ingestion metadata.
-- Generate enabled search queries.
-- Configure eBay OAuth authentication.
-- Configure the dlt REST API source.
-- Configure incremental discovery.
-- Return the complete dlt source.
+- Configure the eBay OAuth authenticator.
+- Configure the verified REST API source.
+- Define the metadata-driven search query resource.
+- Configure incremental loading and pagination.
+- Return a DLT source.
+
 """
 
 # ============================================================
-# Standard Library Imports
+# Imports
 # ============================================================
 
 import os
 
-
-# ============================================================
-# Third-Party Imports
-# ============================================================
-
 import dlt
 from dotenv import load_dotenv
+
 from dlt.sources.rest_api import rest_api_source
-
-
-# ============================================================
-# Project Imports
-# ============================================================
 
 from sources.ebay_auth import EbayAuth
 
@@ -48,10 +41,6 @@ from utils.project_paths import (
 from utils.logger import get_logger
 
 
-# ============================================================
-# Logger
-# ============================================================
-
 logger = get_logger(__name__)
 
 
@@ -59,7 +48,7 @@ logger = get_logger(__name__)
 # Environment Configuration
 # ============================================================
 
-# Load project secrets from .env
+# Load project secrets from .env.
 load_dotenv(PROJECT_ROOT / ".env")
 
 
@@ -70,16 +59,20 @@ load_dotenv(PROJECT_ROOT / ".env")
 @dlt.resource(name="search_queries")
 def search_queries(categories_config: dict):
     """
-    Generate all enabled search queries from categories.yml.
+    Generate enabled eBay search queries from categories.yml.
 
-    This resource acts as the parent resource for the Browse Search
-    resource. The Browse Search resource consumes the generated
-    search values using dlt's resources.<resource>.<field> syntax.
+    This resource acts as the parent resource for the
+    Browse Search REST API resource.
+
+    Responsibilities:
+    - Read enabled categories.
+    - Read enabled subcategories.
+    - Read enabled search queries.
+    - Preserve metadata for downstream lineage.
+
+    Yields:
+        Dictionary containing query and category metadata.
     """
-
-    logger.info("Generating enabled eBay search queries")
-
-    query_count = 0
 
     for category in get_enabled_categories(categories_config):
 
@@ -87,26 +80,12 @@ def search_queries(categories_config: dict):
 
             for query in get_enabled_queries(subcategory):
 
-                query_count += 1
-
                 yield {
-                    # Preserve category metadata for lineage.
                     "category_id": category["id"],
-
-                    # Preserve subcategory metadata for lineage.
                     "subcategory_id": subcategory["id"],
-
-                    # Preserve query metadata for lineage.
                     "query_id": query["id"],
-
-                    # Actual keyword sent to eBay Browse API.
                     "search": query["search"],
                 }
-
-    logger.info(
-        "Search query generation completed | queries=%s",
-        query_count,
-    )
 
 
 # ============================================================
@@ -116,29 +95,31 @@ def search_queries(categories_config: dict):
 @dlt.source(name="ebay")
 def ebay_source():
     """
-    Build the eBay Browse Search dlt source.
+    Build the eBay Browse Search DLT source.
+
+    Responsibilities:
+    - Load API and category metadata.
+    - Configure eBay OAuth authentication.
+    - Configure the REST API client.
+    - Configure query parameters.
+    - Configure incremental loading.
+    - Configure pagination.
+    - Build the parent/dependent resource relationship.
     """
 
     logger.info("Building eBay Browse Search source")
 
-    # ========================================================
+    # --------------------------------------------------------
     # Load Configuration
-    # ========================================================
+    # --------------------------------------------------------
 
-    # Load API behavior configuration.
     api_config = load_config(API_CONFIG_FILE)
-
-    # Load category and search-query configuration.
     categories_config = load_config(CATEGORIES_FILE)
 
     logger.info("Loaded eBay API configuration")
     logger.info("Loaded category ingestion configuration")
 
-    # Extract API-level configuration.
     api = api_config["api"]
-
-    # Extract authentication configuration.
-    auth_config = api_config["authentication"]
 
     logger.info(
         "Browse API configuration | endpoint=%s | method=%s | "
@@ -149,11 +130,12 @@ def ebay_source():
         api["default_limit"],
     )
 
-    # ========================================================
+    # --------------------------------------------------------
     # Authentication
-    # ========================================================
+    # --------------------------------------------------------
 
-    # Load eBay credentials from environment variables.
+    auth_config = api_config["authentication"]
+
     client_id = os.getenv("EBAY_CLIENT_ID")
     client_secret = os.getenv("EBAY_CLIENT_SECRET")
 
@@ -167,14 +149,6 @@ def ebay_source():
         "loaded" if client_secret else "missing",
     )
 
-    if not client_id or not client_secret:
-        raise ValueError(
-            "eBay OAuth credentials are missing. "
-            "Ensure EBAY_CLIENT_ID and EBAY_CLIENT_SECRET "
-            "are configured."
-        )
-
-    # Configure custom eBay OAuth authenticator.
     oauth = EbayAuth(
         client_id=client_id,
         client_secret=client_secret,
@@ -190,22 +164,9 @@ def ebay_source():
         api["marketplace_id"],
     )
 
-    # ========================================================
-    # API Configuration
-    # ========================================================
-
-    # Read parameter mapping from metadata.
-    parameters = api["parameters"]
-
-    # Read incremental configuration from metadata.
-    incremental = api["incremental"]
-
-    # Read filter configuration from metadata.
-    filters = api["filter"]
-
-    # ========================================================
-    # REST API Client Configuration
-    # ========================================================
+    # --------------------------------------------------------
+    # API Client
+    # --------------------------------------------------------
 
     client_config = {
         "base_url": api["base_url"],
@@ -217,69 +178,40 @@ def ebay_source():
         api["base_url"],
     )
 
-    # ========================================================
-    # Browse Search Parameters
-    # ========================================================
+    # --------------------------------------------------------
+    # API Metadata
+    # --------------------------------------------------------
+
+    parameters = api["parameters"]
+
+    incremental = api["incremental"]
+
+    filters = api["filter"]
+
+    # --------------------------------------------------------
+    # Optional Sorting
+    # --------------------------------------------------------
 
     params = {
 
-        # ----------------------------------------------------
-        # Dynamic Search Query
-        # ----------------------------------------------------
-        #
-        # IMPORTANT:
-        # Current dlt versions resolve parent-resource values
-        # in query parameters using:
-        #
-        # resources.<parent_resource>.<field>
-        #
-        # This creates the dependency:
-        #
-        # search_queries
-        #       ↓
-        # browse_search
-        #
-        parameters["search"]: "{resources.search_queries.search}",
+        # Resolve the search keyword from the parent
+        # search_queries resource.
+        parameters["search"]: {
+            "type": "resolve",
+            "resource": "search_queries",
+            "field": "search",
+        },
 
-
-        # ----------------------------------------------------
-        # Page Size
-        # ----------------------------------------------------
-
+        # Maximum number of records returned per API request.
         parameters["limit"]: api["default_limit"],
 
-
-        # ----------------------------------------------------
-        # Incremental Filter
-        # ----------------------------------------------------
-        #
-        # dlt replaces incremental.start_value with the
-        # stateful cursor value.
-        #
-        # First run:
-        #     2026-01-01T00:00:00Z
-        #
-        # Subsequent runs:
-        #     last processed itemStartDate
-        #
-
+        # Incremental discovery filter.
         parameters["filter"]: filters["item_start_date"],
     }
 
-
-    # ========================================================
-    # Optional Sorting
-    # ========================================================
-
-    # Sort is intentionally optional.
-    #
-    # We removed it from the initial configuration because
-    # the first ingestion should establish the initial
-    # incremental state without relying on sorting.
-    #
-    # If sort is later enabled in api_config.yml, it will
-    # automatically be added here.
-
+    # Sorting is optional.
+    # If sort is absent from api_config.yml, no sort
+    # parameter is sent to eBay.
     if api.get("sort"):
 
         params["sort"] = api["sort"]
@@ -289,54 +221,36 @@ def ebay_source():
             api["sort"],
         )
 
-    else:
-
-        logger.info(
-            "Browse API sorting disabled"
-        )
-
-
-    # ========================================================
-    # Log Incremental Configuration
-    # ========================================================
+    # --------------------------------------------------------
+    # Incremental Loading
+    # --------------------------------------------------------
 
     logger.info(
-        "Incremental discovery configured | "
-        "cursor=%s | initial_value=%s",
+        "Incremental discovery configured | cursor=%s | "
+        "initial_value=%s",
         incremental["cursor_path"],
         incremental["initial_value"],
     )
 
-
-    # ========================================================
+    # --------------------------------------------------------
     # Browse Search Resource
-    # ========================================================
+    # --------------------------------------------------------
 
     resource_config = {
 
-        # Single logical resource containing all Browse searches.
         "name": "browse_search",
 
         "endpoint": {
 
-            # eBay Browse Search endpoint.
             "path": api["endpoint"],
 
-            # HTTP method.
             "method": api["method"],
 
-            # Query parameters.
+            # Request parameters.
             "params": params,
 
-            # ------------------------------------------------
-            # Incremental Discovery
-            # ------------------------------------------------
-            #
-            # dlt tracks itemStartDate from the API response.
-            #
-            # The tracked value is then used to populate
-            # incremental.start_value on the next execution.
-
+            # dlt tracks the maximum itemStartDate value
+            # returned by the API.
             "incremental": {
                 "cursor_path": incremental["cursor_path"],
                 "initial_value": incremental["initial_value"],
@@ -345,27 +259,46 @@ def ebay_source():
             # Pagination strategy.
             "paginator": api["paginator"],
 
-            # Extract only itemSummaries from the response.
+            # JSON field containing the API records.
             "data_selector": api["data_selector"],
         },
     }
 
-    logger.info(
-        "Browse Search resource configured"
-    )
+    logger.info("Browse Search resource configured")
 
-
-    # ========================================================
-    # REST API Source Configuration
-    # ========================================================
+    # --------------------------------------------------------
+    # REST API Configuration
+    # --------------------------------------------------------
+    #
+    # IMPORTANT:
+    #
+    # search_queries is included inside the REST API resource
+    # list so the latest dlt REST API dependency graph can
+    # recognize it as the parent resource of browse_search.
+    #
+    # Dependency:
+    #
+    # search_queries
+    #       |
+    #       v
+    # browse_search
+    #
+    # browse_search resolves:
+    #
+    # resources.search_queries.search
+    #
+    # --------------------------------------------------------
 
     rest_api_config = {
 
-        # eBay REST client.
         "client": client_config,
 
-        # Browse Search resource.
         "resources": [
+
+            # Parent metadata resource.
+            search_queries(categories_config),
+
+            # Dependent eBay Browse API resource.
             resource_config,
         ],
     }
@@ -374,19 +307,19 @@ def ebay_source():
         "eBay REST API source configuration completed"
     )
 
-
-    # ========================================================
+    # --------------------------------------------------------
     # Return DLT Source
-    # ========================================================
+    # --------------------------------------------------------
+    #
+    # search_queries is already registered inside
+    # rest_api_config, therefore it must NOT be returned
+    # separately here.
+    #
+    # Otherwise the same resource could be registered twice.
+    # --------------------------------------------------------
 
-    logger.info(
-        "Returning eBay DLT source"
-    )
+    logger.info("Returning eBay DLT source")
 
     return [
-        # Parent resource that produces search parameters.
-        search_queries(categories_config),
-
-        # REST API resource that consumes those parameters.
         rest_api_source(rest_api_config),
     ]
