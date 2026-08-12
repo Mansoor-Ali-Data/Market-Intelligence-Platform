@@ -196,11 +196,7 @@ def ebay_source():
 
         # Resolve the search keyword from the parent
         # search_queries resource.
-        parameters["search"]: {
-            "type": "resolve",
-            "resource": "search_queries",
-            "field": "search",
-        },
+        parameters["search"]: "{resources.search_queries.search}",
 
         # Maximum number of records returned per API request.
         parameters["limit"]: api["default_limit"],
