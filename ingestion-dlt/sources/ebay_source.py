@@ -40,6 +40,8 @@ from utils.project_paths import (
 
 from utils.logger import get_logger
 
+from dlt.sources.helpers.rest_client.paginators import OffsetPaginator
+
 
 logger = get_logger(__name__)
 
@@ -252,8 +254,18 @@ def ebay_source():
                 "initial_value": incremental["initial_value"],
             },
 
-            # Pagination strategy.
-            "paginator": api["paginator"],
+            # Offset-based pagination.
+            #
+            # eBay uses:
+            #   limit  -> number of records per request
+            #   offset -> starting record position
+            #
+            # Values are read from metadata rather than hardcoded.
+            "paginator": OffsetPaginator(
+                limit=api["default_limit"],
+                offset_param=parameters["offset"],
+                limit_param=parameters["limit"],
+            ),
 
             # JSON field containing the API records.
             "data_selector": api["data_selector"],
