@@ -328,6 +328,4 @@ def ebay_source():
 
     logger.info("Returning eBay DLT source")
 
-    return [
-        rest_api_source(rest_api_config),
-    ]
+    return rest_api_source(rest_api_config)
