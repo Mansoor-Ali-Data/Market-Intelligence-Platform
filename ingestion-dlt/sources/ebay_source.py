@@ -82,12 +82,19 @@ def search_queries(categories_config: dict):
 
             for query in get_enabled_queries(subcategory):
 
-                yield {
+                record = {
                     "category_id": category["id"],
                     "subcategory_id": subcategory["id"],
                     "query_id": query["id"],
                     "search": query["search"],
                 }
+
+                logger.info(
+                    "Parent resource record | type=%s | value=%s",
+                    type(record).__name__,
+                    record,
+                )
+                yield record
 
 
 # ============================================================
@@ -196,11 +203,15 @@ def ebay_source():
 
     params = {
 
-        # Resolve the search keyword from the parent
-        # search_queries resource.
-        parameters["search"]: "{resources.search_queries.search}",
+        # Resolve the eBay search keyword from the
+        # search field of the parent search_queries resource.
+        parameters["search"]: {
+            "type": "resolve",
+            "resource": "search_queries",
+            "field": "search",
+        },
 
-        # Maximum number of records returned per API request.
+        # Maximum records returned per API request.
         parameters["limit"]: api["default_limit"],
 
         # Incremental discovery filter.
