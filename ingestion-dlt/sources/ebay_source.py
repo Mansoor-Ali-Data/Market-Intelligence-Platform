@@ -63,18 +63,14 @@ def search_queries(categories_config: dict):
     """
     Generate enabled eBay search queries from categories.yml.
 
-    This resource acts as the parent resource for the
+    The resource acts as a seed/parent resource for the
     Browse Search REST API resource.
 
-    Responsibilities:
-    - Read enabled categories.
-    - Read enabled subcategories.
-    - Read enabled search queries.
-    - Preserve metadata for downstream lineage.
-
-    Yields:
-        Dictionary containing query and category metadata.
+    dlt REST API dependent resources expect the parent
+    seed resource to yield a list of dictionaries.
     """
+
+    records = []
 
     for category in get_enabled_categories(categories_config):
 
@@ -89,12 +85,21 @@ def search_queries(categories_config: dict):
                     "search": query["search"],
                 }
 
-                logger.info(
-                    "Parent resource record | type=%s | value=%s",
-                    type(record).__name__,
-                    record,
-                )
-                yield record
+                records.append(record)
+
+    logger.info(
+        "Generated parent search query records | count=%s",
+        len(records),
+    )
+
+    for record in records:
+        logger.info(
+            "Parent resource record | type=%s | value=%s",
+            type(record).__name__,
+            record,
+        )
+    records.append(record)
+    yield records
 
 
 # ============================================================
@@ -203,15 +208,13 @@ def ebay_source():
 
     params = {
 
-        # Resolve the eBay search keyword from the
-        # search field of the parent search_queries resource.
-        parameters["search"]: {
-            "type": "resolve",
-            "resource": "search_queries",
-            "field": "search",
-        },
+        # Resolve the search keyword from the parent resource.
+        #
+        # This is a QUERY parameter, so we use the
+        # resources.<resource>.<field> placeholder syntax.
+        parameters["search"]: "{resources.search_queries.search}",
 
-        # Maximum records returned per API request.
+        # Maximum number of records returned per API request.
         parameters["limit"]: api["default_limit"],
 
         # Incremental discovery filter.
