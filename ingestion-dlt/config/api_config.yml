@@ -1,61 +1,65 @@
 # ============================================================================
 # eBay Browse Search API Configuration
 # ============================================================================
-# Purpose:
-#   Defines how the ingestion framework communicates with the eBay Browse API.
-#   Contains API behavior only.
-# ============================================================================
-
-# ----------------------------------------------------------------------------
-# Browse Search API Configuration
-# ----------------------------------------------------------------------------
 
 api:
-  
+
   # Base endpoint information
   base_url: "https://api.ebay.com"
   endpoint: "/buy/browse/v1/item_summary/search"
   method: "GET"
+
   # eBay marketplace to query
   marketplace_id: "EBAY_US"
+
   default_limit: 200
   paginator: offset
   data_selector: itemSummaries
   sort: "newlyListed"
-  
+
   # --------------------------------------------------------------------------
   # Incremental Discovery Configuration
   # --------------------------------------------------------------------------
-  # dlt automatically replaces {incremental.start_value}
-  # with the latest processed itemStartDate.
+  #
+  # cursor_path MUST refer to a field inside each returned item.
+  #
+  # eBay ItemSummary always contains itemOriginDate.
+  #
   incremental:
-    
-    cursor_path : itemStartDate
+
+    cursor_path: itemOriginDate
     initial_value: "2026-01-01T00:00:00Z"
-  
 
   # --------------------------------------------------------------------------
   # Browse Search Filters
   # --------------------------------------------------------------------------
+
   filter:
-    
+
+    # This is an eBay API filter.
+    #
+    # Notice that this is intentionally different from
+    # the dlt cursor field above.
     item_start_date: "itemStartDate:[{incremental.start_value}..]"
 
   # --------------------------------------------------------------------------
   # Internal → eBay Query Parameter Mapping
   # --------------------------------------------------------------------------
+
   parameters:
-    
+
     search: "q"
     limit: "limit"
     offset: "offset"
     filter: "filter"
 
+
 # ----------------------------------------------------------------------------
 # OAuth Authentication Configuration
 # ----------------------------------------------------------------------------
+
 authentication:
-  
+
   type: ebay_oauth
   access_token_url: "https://api.ebay.com/identity/v1/oauth2/token"
   grant_type: client_credentials
@@ -66,8 +70,8 @@ authentication:
 # ----------------------------------------------------------------------------
 # dlt Pipeline Configuration
 # ----------------------------------------------------------------------------
+
 pipeline:
-  
+
   pipeline_name: "ebay_browse_ingestion"
   dataset_name: "ebay"
-
