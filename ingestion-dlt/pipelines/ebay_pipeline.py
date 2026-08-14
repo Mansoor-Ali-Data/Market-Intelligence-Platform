@@ -15,7 +15,7 @@ Responsibilities
 
 import dlt
 from dotenv import load_dotenv
-
+from datetime import date
 from sources.ebay_source import ebay_source
 
 from utils.config_loader import load_config
@@ -61,7 +61,7 @@ logger.info(
 # Create and Run DLT Pipeline
 # --------------------------------------------------
 
-def run_pipeline():
+def run_pipeline(extraction_date: date):
     """
     Create and execute the eBay DLT pipeline.
 
@@ -106,7 +106,7 @@ def run_pipeline():
     try:
 
         load_info = pipeline.run(
-            ebay_source()
+            ebay_source(extraction_date)
         )
 
     except Exception:
