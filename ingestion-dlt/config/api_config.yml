@@ -35,7 +35,7 @@ api:
     #
     # itemStartDate:[2026-08-13T00:00:00Z..2026-08-14T00:00:00Z]
     #
-    item_start_date: "itemStartDate:[{window.start}..{window.end}]"
+    item_start_date: "itemStartDate:[{window_start}..{window_end}]"
 
 
   # --------------------------------------------------------------------------
