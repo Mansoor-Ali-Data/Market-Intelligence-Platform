@@ -18,6 +18,9 @@ Responsibilities:
 
 import os
 
+from datetime import date
+from utils.data_window import build_daily_window
+
 import dlt
 from dotenv import load_dotenv
 
@@ -107,7 +110,7 @@ def search_queries(categories_config: dict):
 # ============================================================
 
 @dlt.source(name="ebay")
-def ebay_source():
+def ebay_source(extraction_date: date):
     """
     Build the eBay Browse Search DLT source.
 
@@ -134,6 +137,18 @@ def ebay_source():
     logger.info("Loaded category ingestion configuration")
 
     api = api_config["api"]
+
+    # --------------------------------------------------------
+    # Extraction Window
+    # --------------------------------------------------------
+
+    window = build_daily_window(extraction_date)
+
+    logger.info(
+        "eBay extraction window | start=%s | end=%s",
+        window.start,
+        window.end,
+    )
 
     logger.info(
         "Browse API configuration | endpoint=%s | method=%s | "
@@ -198,28 +213,21 @@ def ebay_source():
 
     parameters = api["parameters"]
 
-    incremental = api["incremental"]
-
     filters = api["filter"]
 
-    # --------------------------------------------------------
-    # Optional Sorting
-    # --------------------------------------------------------
+    
 
     params = {
 
-        # Resolve the search keyword from the parent resource.
-        #
-        # This is a QUERY parameter, so we use the
-        # resources.<resource>.<field> placeholder syntax.
-        parameters["search"]: "{resources.search_queries.search}",
+            parameters["search"]: "{resources.search_queries.search}",
 
-        # Maximum number of records returned per API request.
-        parameters["limit"]: api["default_limit"],
+            parameters["limit"]: api["default_limit"],
 
-        # Incremental discovery filter.
-        parameters["filter"]: filters["item_start_date"],
-    }
+            parameters["filter"]: filters["item_start_date"].format(
+                window_start=window.start,
+                window_end=window.end,
+            ),
+        }
 
     # Sorting is optional.
     # If sort is absent from api_config.yml, no sort
@@ -232,17 +240,6 @@ def ebay_source():
             "Browse API sorting enabled | sort=%s",
             api["sort"],
         )
-
-    # --------------------------------------------------------
-    # Incremental Loading
-    # --------------------------------------------------------
-
-    logger.info(
-        "Incremental discovery configured | cursor=%s | "
-        "initial_value=%s",
-        incremental["cursor_path"],
-        incremental["initial_value"],
-    )
 
     # --------------------------------------------------------
     # Browse Search Resource
@@ -260,13 +257,6 @@ def ebay_source():
 
             # Request parameters.
             "params": params,
-
-            # dlt tracks the maximum itemStartDate value
-            # returned by the API.
-            "incremental": {
-                "cursor_path": incremental["cursor_path"],
-                "initial_value": incremental["initial_value"],
-            },
 
             # Offset-based pagination.
             #

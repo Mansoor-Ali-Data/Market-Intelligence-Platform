@@ -1,69 +1,51 @@
-"""
-Application entry point for the eBay ingestion pipeline.
-
-Responsibilities
-----------------
-- Start the ingestion pipeline.
-- Log application lifecycle events.
-- Handle unexpected pipeline failures.
-"""
-
-# --------------------------------------------------
-# Required Libraries
-# --------------------------------------------------
+import argparse
+from datetime import date, datetime, timedelta, timezone
 
 from pipelines.ebay_pipeline import run_pipeline
 
-from utils.logger import get_logger
 
+def parse_args() -> argparse.Namespace:
 
-# --------------------------------------------------
-# Logger
-# --------------------------------------------------
-
-logger = get_logger(__name__)
-
-
-# --------------------------------------------------
-# Application Entry Point
-# --------------------------------------------------
-
-def main():
-    """
-    Run the eBay ingestion pipeline.
-    """
-
-    logger.info(
-        "Starting eBay ingestion application"
+    parser = argparse.ArgumentParser(
+        description="Run eBay daily ingestion."
     )
 
-    try:
+    parser.add_argument(
+        "--date",
+        dest="extraction_date",
+        type=str,
+        help="UTC extraction date in YYYY-MM-DD format.",
+    )
 
-        load_info = run_pipeline()
+    return parser.parse_args()
 
-    except Exception:
 
-        logger.exception(
-            "eBay ingestion application failed"
+def main() -> None:
+
+    args = parse_args()
+
+    if args.extraction_date:
+
+        extraction_date = datetime.strptime(
+            args.extraction_date,
+            "%Y-%m-%d",
+        ).date()
+
+    else:
+
+        # Default to previous UTC day.
+        extraction_date = (
+            datetime.now(timezone.utc).date()
+            - timedelta(days=1)
         )
 
-        raise
-
-    logger.info(
-        "eBay ingestion application completed successfully"
+    print(
+        f"Running eBay ingestion for "
+        f"extraction_date={extraction_date}"
     )
 
-    logger.info(
-        "Pipeline execution result: %s",
-        load_info,
-    )
+    run_pipeline(extraction_date)
 
-    return load_info
-
-
-# --------------------------------------------------
-# Script Entry Point
-# --------------------------------------------------
 
 if __name__ == "__main__":
     main()
