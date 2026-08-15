@@ -35,6 +35,8 @@ from utils.config_loader import (
     get_enabled_queries,
 )
 
+from utils.ebay_request_logger import EbayRequestLoggingSession
+
 from utils.project_paths import (
     PROJECT_ROOT,
     API_CONFIG_FILE,
@@ -101,7 +103,6 @@ def search_queries(categories_config: dict):
             type(record).__name__,
             record,
         )
-    records.append(record)
     yield records
 
 
@@ -196,10 +197,11 @@ def ebay_source(extraction_date: date):
     # --------------------------------------------------------
     # API Client
     # --------------------------------------------------------
-
+    session = EbayRequestLoggingSession()
     client_config = {
         "base_url": api["base_url"],
         "auth": oauth,
+        "session": session,
     }
 
     logger.info(
