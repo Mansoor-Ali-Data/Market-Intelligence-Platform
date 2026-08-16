@@ -99,10 +99,14 @@ def search_queries(categories_config: dict):
 
     for record in records:
         logger.info(
-            "Parent resource record | type=%s | value=%s",
-            type(record).__name__,
-            record,
+            "Enabled search query | "
+            "category=%s | subcategory=%s | query_id=%s | search=%s",
+            record["category_id"],
+            record["subcategory_id"],
+            record["query_id"],
+            record["search"],
         )
+        
     yield records
 
 
@@ -271,6 +275,7 @@ def ebay_source(extraction_date: date):
                 limit=api["default_limit"],
                 offset_param=parameters["offset"],
                 limit_param=parameters["limit"],
+                maximum_offset=600,
             ),
 
             # JSON field containing the API records.
