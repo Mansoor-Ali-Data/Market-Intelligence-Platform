@@ -5,12 +5,6 @@
 #   Defines business categories and search expressions used during eBay
 #   Browse API ingestion.
 #
-# Design Principles:
-#   - Business metadata only
-#   - No API implementation logic
-#   - No authentication
-#   - No pagination
-#   - Metadata-driven ingestion
 #
 # Notes:
 #   id               : Stable machine identifier
@@ -45,65 +39,65 @@ categories:
             name: Laptop
             enabled: true
             priority: 1
-            search: "(laptop, notebook, gaming laptop, business laptop, ultrabook, professional laptop, chromebook, macbook)"
+            search: "(laptop)"
 
           - id: desktop
             name: Desktop
-            enabled: true
+            enabled: false
             priority: 2
             search: "(desktop, desktop computer, prebuilt pc, prebuilt workstation pc)"
 
           - id: tablet
             name: Tablet
-            enabled: true
+            enabled: false
             priority: 3
             search: "(tablet, tablet pc)"
 
           - id: cpu
             name: CPU
-            enabled: true
+            enabl: false
             priority: 4
             search: "(cpu, processor)"
 
           - id: gpu
             name: GPU
-            enabled: true
+            enabled: false
             priority: 5
             search: "(gpu, graphics card, video card, RTX, Radeon)"
 
           - id: motherboard
             name: Motherboard
-            enabled: true
+            enabled: false
             priority: 6
             search: "(motherboard, mainboard)"
 
           - id: ram
             name: RAM
-            enabled: true
+            enabled: false
             priority: 7
             search: "(ram, computer memory, rgb ram, ddr4 ram, ddr5 ram)"
 
           - id: ssd
             name: SSD
-            enabled: true
+            enabled: false
             priority: 8
             search: "(ssd, solid state drive)"
 
           - id: hard_drive
             name: Hard Drive
-            enabled: true
+            enabled: false
             priority: 9
             search: "(hard drive, hdd)"
 
           - id: keyboard
             name: Keyboard
-            enabled: true
+            enabled: false
             priority: 10
             search: "(keyboard, mechanical keyboard, gaming keyboard)"
 
           - id: mouse
             name: Mouse
-            enabled: true
+            enabled: false
             priority: 11
             search: "(mouse, computer mouse, gaming mouse)"
 
@@ -113,7 +107,7 @@ categories:
 
       - id: gaming
         name: Video Games & Consoles
-        enabled: true
+        enabled: false
         priority: 2
         ebay_category_id: null
 
@@ -121,79 +115,79 @@ categories:
 
           - id: console
             name: Gaming Console
-            enabled: true
+            enabled: false
             priority: 1
             search: "(console, gaming console)"
 
           - id: playstation
             name: PlayStation
-            enabled: true
+            enabled: false
             priority: 2
             search: "(playstation 5, ps5, playstation 4, ps4, playstation)"
 
           - id: xbox
             name: Xbox
-            enabled: true
+            enabled: false
             priority: 3
             search: "(xbox, xbox series x, xbox series s)"
 
           - id: nintendo
             name: Nintendo
-            enabled: true
+            enabled: false
             priority: 4
             search: "(nintendo, nintendo switch, nintendo switch 2)"
 
           - id: steam_deck
             name: Steam Deck
-            enabled: true
+            enabled: false
             priority: 5
             search: "(steam deck)"
 
           - id: steam_machine
             name: Steam Machine
-            enabled: true
+            enabled: false
             priority: 6
             search: "(steam machine, steam console)"
 
           - id: game_controller
             name: Game Controller
-            enabled: true
+            enabled: false
             priority: 7
             search: "(game controller, gaming controller)"
 
           - id: headset
             name: Gaming Headset
-            enabled: true
+            enabled: false
             priority: 8
             search: "(headset, gaming headset)"
 
           - id: virtual_reality
             name: Virtual Reality
-            enabled: true
+            enabled: false
             priority: 9
             search: "(virtual reality, vr)"
 
           - id: gaming_keyboard
             name: Gaming Keyboard
-            enabled: true
+            enabled: false
             priority: 10
             search: "(gaming keyboard, mechanical keyboard)"
 
           - id: gaming_mouse
             name: Gaming Mouse
-            enabled: true
+            enabled: false
             priority: 11
             search: "(gaming mouse, esports mouse)"
 
           - id: video_game
             name: Video Game
-            enabled: true
+            enabled: false
             priority: 12
             search: "(video game, pc game)"
 
           - id: game_disc
             name: Game Disc
-            enabled: true
+            enabled: false
             priority: 13
             search: "(game disc, video game disc, physical game disc)"
 
@@ -203,7 +197,7 @@ categories:
 
       - id: cameras_photo
         name: Cameras & Photo
-        enabled: true
+        enabled: false
         priority: 3
         ebay_category_id: null
 
@@ -211,72 +205,72 @@ categories:
 
           - id: digital_camera
             name: Digital Camera
-            enabled: true
+            enabled: false
             priority: 1
             search: "(digital camera, dslr camera, mirrorless camera)"
 
           - id: film_camera
             name: Film Camera
-            enabled: true
+            enabled: false
             priority: 2
             search: "(film camera, analog camera)"
 
           - id: camera_drone
             name: Camera Drone
-            enabled: true
+            enabled: false
             priority: 3
             search: "(camera drone, drone)"
 
           - id: camcorder
             name: Camcorder
-            enabled: true
+            enabled: false
             priority: 4
             search: "(camcorder, video camera)"
 
           - id: vintage_camera
             name: Vintage Camera
-            enabled: true
+            enabled: false
             priority: 5
             search: "(vintage camera)"
 
           - id: camera_lens
             name: Camera Lens
-            enabled: true
+            enabled: false
             priority: 6
             search: "(camera lens, lens)"
 
           - id: camera_filter
             name: Camera Filter
-            enabled: true
+            enabled: false
             priority: 7
             search: "(camera filter, lens filter)"
 
           - id: camera_accessory
             name: Camera Accessory
-            enabled: true
+            enabled: false
             priority: 8
             search: "(camera accessory, camera accessories)"
 
           - id: tripod
             name: Tripod
-            enabled: true
+            enabled: false
             priority: 9
             search: "(tripod, camera tripod)"
 
           - id: binocular
             name: Binocular
-            enabled: true
+            enabled: false
             priority: 10
             search: "(binocular, binoculars)"
 
           - id: telescope
             name: Telescope
-            enabled: true
+            enabled: false
             priority: 11
             search: "(telescope)"
 
           - id: action_camera
             name: Action Camera
-            enabled: true
+            enabled: false
             priority: 12
             search: "(action camera, action cam)"
