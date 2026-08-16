@@ -106,7 +106,7 @@ def search_queries(categories_config: dict):
             record["query_id"],
             record["search"],
         )
-        
+
     yield records
 
 
@@ -275,7 +275,7 @@ def ebay_source(extraction_date: date):
                 limit=api["default_limit"],
                 offset_param=parameters["offset"],
                 limit_param=parameters["limit"],
-                maximum_offset=600,
+                maximum_offset=10000,
             ),
 
             # JSON field containing the API records.
