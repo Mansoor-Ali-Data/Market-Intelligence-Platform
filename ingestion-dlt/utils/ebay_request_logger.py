@@ -1,4 +1,22 @@
-import logging
+"""
+Request-level logging and statistics for the eBay Browse API.
+
+Responsibilities
+----------------
+- Execute HTTP requests through requests.Session.
+- Measure request duration.
+- Capture pagination parameters.
+- Count records returned by eBay.
+- Track aggregate request statistics.
+- Log request-level metrics.
+
+This module does NOT:
+- control pagination
+- implement authentication
+- modify API parameters
+- perform retries
+- contain business logic
+"""
 
 from dataclasses import dataclass
 from time import perf_counter
@@ -6,23 +24,31 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 
+from utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+
+logger = get_logger(__name__)
 
 
 # ============================================================
 # Request Statistics
 # ============================================================
 
+
 @dataclass
 class EbayRequestStats:
-    """Track eBay Browse API request-level metrics for one ingestion run."""
+    """Track eBay Browse API request metrics for one ingestion run."""
 
     total_requests: int = 0
     successful_requests: int = 0
     failed_requests: int = 0
+
     total_records: int = 0
     total_duration: float = 0.0
+
+    # --------------------------------------------------------
+    # Record Request
+    # --------------------------------------------------------
 
     def record_request(
         self,
@@ -31,7 +57,7 @@ class EbayRequestStats:
         record_count: int,
         duration: float,
     ) -> None:
-        """Record metrics for one completed API request."""
+        """Record metrics for one completed HTTP request."""
 
         self.total_requests += 1
         self.total_duration += duration
@@ -42,17 +68,25 @@ class EbayRequestStats:
         else:
             self.failed_requests += 1
 
+    # --------------------------------------------------------
+    # Average Duration
+    # --------------------------------------------------------
+
     @property
     def average_duration(self) -> float:
-        """Return average API request duration in seconds."""
+        """Return average request duration in seconds."""
 
         if self.total_requests == 0:
             return 0.0
 
         return self.total_duration / self.total_requests
 
+    # --------------------------------------------------------
+    # Summary
+    # --------------------------------------------------------
+
     def log_summary(self) -> None:
-        """Log the final request summary."""
+        """Log aggregate request statistics."""
 
         logger.info("=" * 60)
         logger.info("eBay Browse API Request Summary")
@@ -90,25 +124,13 @@ class EbayRequestStats:
 # eBay Request Logging Session
 # ============================================================
 
+
 class EbayRequestLoggingSession(requests.Session):
     """
-    Custom requests session used by the eBay Browse API client.
+    requests.Session implementation that records eBay API metrics.
 
-    Responsibilities
-    ----------------
-    - Execute HTTP requests normally.
-    - Measure request duration.
-    - Extract pagination parameters from the request URL.
-    - Count records returned by eBay.
-    - Log request-level metrics.
-    - Aggregate metrics into EbayRequestStats.
-
-    The session does NOT:
-    - control pagination
-    - modify API parameters
-    - perform authentication
-    - retry requests
-    - implement business logic
+    The session deliberately does not modify requests. It only
+    observes completed HTTP requests and records metrics.
     """
 
     def __init__(self) -> None:
@@ -116,40 +138,60 @@ class EbayRequestLoggingSession(requests.Session):
 
         self.stats = EbayRequestStats()
 
+    # --------------------------------------------------------
+    # Send
+    # --------------------------------------------------------
+
     def send(self, request, **kwargs):
         """
-        Execute one HTTP request and record request-level metrics.
-
-        dlt's REST client eventually sends requests through this
-        requests.Session implementation.
+        Execute an HTTP request and record request-level metrics.
         """
 
-        start_time = perf_counter()
+        request_start = perf_counter()
 
         try:
-            response = super().send(request, **kwargs)
+            response = super().send(
+                request,
+                **kwargs,
+            )
 
-            duration = perf_counter() - start_time
+            duration = perf_counter() - request_start
 
             # ------------------------------------------------
-            # Extract request parameters
+            # Parse Request URL
             # ------------------------------------------------
 
             parsed_url = urlparse(request.url)
-            query_params = parse_qs(parsed_url.query)
 
-            query = query_params.get("q", [""])[0]
-            offset = query_params.get("offset", ["0"])[0]
-            limit = query_params.get("limit", [""])[0]
+            query_params = parse_qs(
+                parsed_url.query,
+            )
+
+            query = query_params.get(
+                "q",
+                [""],
+            )[0]
+
+            offset = query_params.get(
+                "offset",
+                ["0"],
+            )[0]
+
+            limit = query_params.get(
+                "limit",
+                [""],
+            )[0]
 
             # ------------------------------------------------
-            # Extract record count
+            # Count Returned Records
             # ------------------------------------------------
 
-            record_count = self._get_record_count(response)
+            record_count = self._get_record_count(
+                response,
+            )
 
             # ------------------------------------------------
-            # Record aggregate statistics
+            # Update Statistics
             # ------------------------------------------------
 
             self.stats.record_request(
@@ -159,7 +201,7 @@ class EbayRequestLoggingSession(requests.Session):
             )
 
             # ------------------------------------------------
-            # Request-level log
+            # Request Log
             # ------------------------------------------------
 
             logger.info(
@@ -183,7 +225,7 @@ class EbayRequestLoggingSession(requests.Session):
             return response
 
         except Exception:
-            duration = perf_counter() - start_time
+            duration = perf_counter() - request_start
 
             self.stats.total_requests += 1
             self.stats.failed_requests += 1
@@ -196,24 +238,31 @@ class EbayRequestLoggingSession(requests.Session):
 
             raise
 
+    # --------------------------------------------------------
+    # Record Count
+    # --------------------------------------------------------
+
     @staticmethod
     def _get_record_count(response) -> int:
         """
-        Extract the number of item records returned by eBay.
-
-        eBay Browse Search responses contain the records under
-        the itemSummaries field.
+        Count item records returned by the eBay Browse Search API.
         """
 
         try:
             payload = response.json()
+
         except ValueError:
             return 0
 
-        if isinstance(payload, dict):
-            records = payload.get("itemSummaries", [])
+        if not isinstance(payload, dict):
+            return 0
 
-            if isinstance(records, list):
-                return len(records)
+        records = payload.get(
+            "itemSummaries",
+            [],
+        )
+
+        if isinstance(records, list):
+            return len(records)
 
         return 0

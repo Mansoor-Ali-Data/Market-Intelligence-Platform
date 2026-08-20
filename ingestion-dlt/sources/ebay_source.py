@@ -202,6 +202,7 @@ def ebay_source(extraction_date: date):
     # API Client
     # --------------------------------------------------------
     session = EbayRequestLoggingSession()
+    
     client_config = {
         "base_url": api["base_url"],
         "auth": oauth,
