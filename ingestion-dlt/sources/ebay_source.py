@@ -340,4 +340,7 @@ def ebay_source(extraction_date: date):
 
     logger.info("Returning eBay DLT source")
 
-    return rest_api_source(rest_api_config)
+    return rest_api_source(
+        rest_api_config,
+        parallelized=True,
+        )
