@@ -57,7 +57,7 @@ Analytical Data
 # Ingestion Strategy
 
 The ingestion layer is being designed around the capabilities and constraints of the eBay Browse API. The current approach separates discovery from enrichment:
-
+```text
 eBay Search / Discovery
         │
         ▼
@@ -68,10 +68,10 @@ Item-level enrichment
         │
         ▼
 Raw marketplace data
-
-
+```
 The Search API provides broad marketplace discovery, while item-level endpoints can provide substantially richer product information.
----
+
+---  
 DLTHub is responsible for:
 
 * API connectivity
