@@ -1,21 +1,67 @@
 # Virtual Environment
 .venv/
+venv/
+env/
+ENV/
 
-# Environment variables
+# Environment & Secrets
 .env
+.env.*
+*.env
+secrets.toml
+*.secrets
 
-# Python
+# Python & Build Artifacts
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
+*$py.class
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
 
-# DLT
+# DLT Pipeline Internals
 .dlt/
 
-# IDE
-.vscode/
+# Package & Lock Files
+*.toml
+*.lock
+.python-version
 
-# Logs
+# Data & Database Formats
+*.json
+*.csv
+*.tsv
+*.parquet
+*.avro
+*.orc
+*.db
+*.sqlite
+*.sqlite3
+*.duckdb
+*.sql
+*.xlsx
+*.xls
+
+# Logs & Documentation / Text Files (non-md)
 *.log
+*.txt
+*.rst
 
+# Temporary & Backup Files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
 
-secrets.toml
+# IDE & OS Specific
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
