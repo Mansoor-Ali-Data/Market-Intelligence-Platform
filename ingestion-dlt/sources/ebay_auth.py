@@ -12,6 +12,7 @@ Responsibilities
 import base64
 import threading
 import time
+from typing import ClassVar
 
 import dlt
 import requests
@@ -74,7 +75,7 @@ class EbayAuth(AuthConfigBase):
     # Guards _access_token / _token_created_at / _fetch_token()
     # against concurrent access when this authenticator instance
     # is shared across multiple threads/workers.
-    _lock: threading.Lock = threading.Lock()
+    _lock: ClassVar[threading.Lock] = threading.Lock()
 
     # --------------------------------------------------
     # OAuth Token
