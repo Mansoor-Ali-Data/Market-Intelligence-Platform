@@ -89,7 +89,7 @@ def search_queries(categories_config: dict):
                     "query_id": query["id"],
                     "search": query["search"],
                 }
-
+                
                 records.append(record)
 
     logger.info(
@@ -255,7 +255,7 @@ def ebay_source(extraction_date: date):
     resource_config = {
 
         "name": "browse_search",
-
+        "parallelized": True,
         "endpoint": {
 
             "path": api["endpoint"],
@@ -281,6 +281,7 @@ def ebay_source(extraction_date: date):
 
             # JSON field containing the API records.
             "data_selector": api["data_selector"],
+            
         },
     }
 
