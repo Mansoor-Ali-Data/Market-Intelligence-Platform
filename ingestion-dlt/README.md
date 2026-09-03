@@ -196,6 +196,43 @@ categories:
 
 ---
 
+## 📊 Parallel Extraction Benchmark
+
+DLT extraction concurrency was benchmarked using the same workload and configuration while varying the number of extraction workers. The controlled workload contained **3 independent search-query chains** (`laptop`, `desktop`, and `tablet`), with **50 paginated API requests per query**, resulting in **150 Browse API requests** and approximately **30,000 records**.
+
+### Benchmark Results
+
+| Metric | Workers = 1 | Workers = 3 | Workers = 6 |
+|---|---:|---:|---:|
+| API requests | 150 | 150 | 150 |
+| Successful requests | 150 | 150 | 150 |
+| Failed requests | 0 | 0 | 0 |
+| Throttling observed | None | None | None |
+| API extraction time | ~132s | ~47s | ~49s |
+| Total pipeline runtime | ~170s | ~81s | ~86s |
+| API extraction speedup | 1.0× | ~2.8× | ~2.7× |
+
+### Findings
+
+- Increasing workers from **1 → 3** reduced API extraction time from approximately **132 seconds to 47 seconds**, demonstrating substantial benefit from concurrent extraction.
+- Increasing workers from **3 → 6** did not provide additional throughput for this benchmark because the workload contained only **3 independent query chains**.
+- All **150 API requests succeeded** in every benchmark run, with no observed throttling.
+- The benchmark demonstrates that DLT parallelization operates across **independent extraction chains**, while pagination within an individual chain remains sequential.
+- The worker count is therefore treated as a **concurrency ceiling**, not as a direct mapping to the number of API requests.
+
+### Production Configuration
+
+The production metadata contains **50+ independent search queries**, significantly larger than the controlled three-query benchmark. Therefore, the ingestion layer is initially configured with:
+
+```toml
+[extract]
+workers = 10
+```
+
+This is an **initial production concurrency ceiling**, not a claim that 10 workers is globally optimal. The setting remains independently configurable so it can be tuned using production telemetry such as extraction duration, API latency, failures, retries, and throttling/rate-limit responses.
+
+The benchmark and production configuration intentionally keep **query selection in metadata** and **execution concurrency in DLT configuration**, preserving the separation of responsibilities in the ingestion architecture.
+
 ## 🚀 Getting Started & Execution
 
 ### 1. Prerequisites
