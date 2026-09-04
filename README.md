@@ -27,7 +27,7 @@ A production-style **Data Engineering platform** that ingests eBay marketplace d
 The goal of this project is to demonstrate modern **Data Engineering best practices** by building an end-to-end data platform, including:
 
 - 🔄 **API Ingestion:** Reliable extraction from high-volume marketplace REST APIs.
-- ⚡ **Incremental Loading:** State-aware, cursor-based pagination and data delta processing.
+- ⚡ **Incremental Loading:** State-aware, pagination and data delta processing.
 - ☁️ **Google Cloud Storage (GCS):** Scalable cloud data lake storage for raw and curated data.
 - ⚙️ **Metadata-Driven Pipelines:** Dynamic configuration-driven orchestration and schema management.
 - 🥉🥈🥇 **Medallion Architecture:** Multi-hop Bronze, Silver, and Gold data transformations.
@@ -195,7 +195,7 @@ Market-Intelligence-Platform/
 - ✅ **DLTHub ingestion project initialized**
 - ✅ **DLTHub REST API implementation investigated**
 - 🚧 **DLT ingestion pipeline under development**
-- 🚧 **DLT parallel request execution being validated**
+- ✅ **DLT parallel request execution validated (2.8x speedup)**
 - ⏳ **Raw ingestion validation**
 - ⏳ **Bronze layer**
 - ⏳ **Silver layer**
@@ -210,7 +210,7 @@ Market-Intelligence-Platform/
 - [ ] eBay API integration
 - [ ] Incremental ingestion
 - [ ] Pagination and retry handling
-- [ ] Parallel request execution
+- [x] Parallel request execution
 - [ ] Raw data storage in GCS
 
 #### **Phase 2 — Medallion Architecture**
