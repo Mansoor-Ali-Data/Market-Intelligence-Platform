@@ -23,6 +23,7 @@ build/
 .pytest_cache/
 .coverage
 htmlcov/
+output/
 
 # DLT Pipeline Internals
 .dlt/
