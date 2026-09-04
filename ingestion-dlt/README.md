@@ -14,7 +14,7 @@ The data extraction engine for the **Market Intelligence Platform**, powered by 
   <img src="https://img.shields.io/badge/Package_Manager-uv-DE5FE9?style=for-the-badge&logo=astral&logoColor=white" alt="uv" />
 </p>
 
-[Key Features](#-key-architectural-pillars) • [Architecture & Data Flow](#-architecture--data-flow) • [Component Deep Dive](#-component-deep-dive) • [Project Structure](#-project-directory-structure) • [Configuration Guide](#-configuration-guide) • [Setup & Execution](#-getting-started--execution)
+[Key Features](#-key-architectural-pillars) • [Architecture & Data Flow](#-architecture--data-flow) • [Component Deep Dive](#-component-deep-dive) • [Parallelism Benchmarks](#-parallel-extraction-benchmarks) • [Project Structure](#-project-directory-structure) • [Configuration Guide](#-configuration-guide) • [Setup & Execution](#-getting-started--execution)
 
 ---
 
@@ -196,40 +196,65 @@ categories:
 
 ---
 
-## 📊 Parallel Extraction Benchmark
+## 📊 Parallel Extraction Benchmarks
 
-DLT extraction concurrency was benchmarked using the same workload and configuration while varying the number of extraction workers. The controlled workload contained **3 independent search-query chains** (`laptop`, `desktop`, and `tablet`), with **50 paginated API requests per query**, resulting in **150 Browse API requests** and approximately **30,000 records**.
+DLT extraction concurrency was evaluated across both the **Search Discovery** (`/item_summary/search`) and **Item Enrichment** (`/item/{item_id}`) API stages to measure scaling efficiency and validate system resilience.
 
-### Benchmark Results
+---
 
-| Metric | Workers = 1 | Workers = 3 | Workers = 6 |
-|---|---:|---:|---:|
-| API requests | 150 | 150 | 150 |
-| Successful requests | 150 | 150 | 150 |
-| Failed requests | 0 | 0 | 0 |
-| Throttling observed | None | None | None |
-| API extraction time | ~132s | ~47s | ~49s |
-| Total pipeline runtime | ~170s | ~81s | ~86s |
-| API extraction speedup | 1.0× | ~2.8× | ~2.7× |
+### 1. Search API Parallelism Benchmark (`/item_summary/search`)
 
-### Findings
+DLT extraction concurrency was benchmarked across independent search query chains under identical workloads. The controlled test executed across **3 search queries** (`laptop`, `desktop`, `tablet`) with **50 paginated requests each**, totaling **150 Browse API requests** and ~30,000 records.
 
-- Increasing workers from **1 → 3** reduced API extraction time from approximately **132 seconds to 47 seconds**, demonstrating substantial benefit from concurrent extraction.
-- Increasing workers from **3 → 6** did not provide additional throughput for this benchmark because the workload contained only **3 independent query chains**.
-- All **150 API requests succeeded** in every benchmark run, with no observed throttling.
-- The benchmark demonstrates that DLT parallelization operates across **independent extraction chains**, while pagination within an individual chain remains sequential.
-- The worker count is therefore treated as a **concurrency ceiling**, not as a direct mapping to the number of API requests.
+| Metric | Workers = 1 (Baseline) | Workers = 3 | Workers = 6 |
+| :--- | :---: | :---: | :---: |
+| **API Requests** | 150 | 150 | 150 |
+| **Successful Requests** | 150 (100%) | 150 (100%) | 150 (100%) |
+| **Failed Requests** | 0 | 0 | 0 |
+| **Throttling Observed** | None | None | None |
+| **API Extraction Time** | ~132s | **~47s** | ~49s |
+| **Total Pipeline Runtime** | ~170s | **~81s** | ~86s |
+| **API Extraction Speedup** | 1.0× (Baseline) | **~2.8×** | ~2.7× |
 
-### Production Configuration
+#### Findings
+- **Near-Linear Speedup (3 Workers):** Scaling to 3 workers reduced extraction time from **132s to 47s** (**~2.8× speedup**), with 1 worker dedicated per query chain.
+- **Worker Saturation (6 Workers):** Allocating 6 workers for 3 query chains produced identical runtime (~49s / 2.7×) because pagination within each chain is sequential, leaving extra workers idle once partitions were saturated.
+- **Resilience:** All 150 API requests completed successfully with zero throttling.
 
-The production metadata contains **50+ independent search queries**, significantly larger than the controlled three-query benchmark. Therefore, the ingestion layer is initially configured with:
+---
+
+### 2. Item Enrichment Parallelism Benchmark (`getItem`)
+
+To validate parallel performance for item-level enrichment, a controlled experiment evaluated sequential execution against concurrent DLT extraction across **20 individual item requests** using the eBay Browse Item API (`/buy/browse/v1/item/{item_id}`).
+
+| Configuration | Items | Workers | Total Runtime | Load Time | Success |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Sequential baseline** | 20 | 1 | 43.868s | 23.63s | 20/20 (100%) |
+| **Parallel** | 20 | 10 | **25.099s** | **11.20s** | 20/20 (100%) |
+
+**Observed total speedup: ~1.75×**
+
+#### Findings
+- **Concurrent Thread Execution:** The 10-worker run **actually demonstrated concurrent execution** distributed across 10 DLT extraction threads.
+- **Load Time & Runtime Reduction:** Total runtime dropped from **43.868s to 25.099s** (~1.75× speedup), and DLT load time was cut from **23.63s to 11.20s** (>2× speedup).
+- **Error-Free Execution:** All 20 `getItem` requests succeeded without errors or throttling.
+
+> **Validation Note:**  
+> For the enrichment experiment, 10 workers provided a validated improvement over the sequential baseline and successfully processed all 20 `getItem` requests without errors.
+
+---
+
+### 3. Production Concurrency Strategy
+
+The production metadata contains **50+ independent search queries** and hundreds of item enrichment requests, significantly larger than the controlled benchmarks. Therefore, the ingestion layer is configured with:
 
 ```toml
 [extract]
+execution_strategy = "round_robin"
 workers = 10
 ```
 
-This is an **initial production concurrency ceiling**, not a claim that 10 workers is globally optimal. The setting remains independently configurable so it can be tuned using production telemetry such as extraction duration, API latency, failures, retries, and throttling/rate-limit responses.
+This is an **initial production concurrency ceiling**, not a claim that 10 workers is globally optimal. The setting remains independently configurable and will be tuned dynamically using production telemetry (extraction duration, API latency, retries, and throttling/rate-limit responses).
 
 The benchmark and production configuration intentionally keep **query selection in metadata** and **execution concurrency in DLT configuration**, preserving the separation of responsibilities in the ingestion architecture.
 
