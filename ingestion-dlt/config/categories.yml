@@ -29,52 +29,52 @@ categories:
 
   - id: motors
     name: Motors
-    enabled: false
+    enabled: true
     priority: 1
 
     subcategories:
 
       - id: parts_accessories
         name: Parts & Accessories
-        enabled: false
+        enabled: true
         priority: 1
         queries:
           - id: auto_parts
             name: Auto Parts
-            enabled: false
+            enabled: true
             priority: 1
             search: "(auto parts, car parts)"
 
       - id: cars_trucks
         name: Cars & Trucks
-        enabled: false
+        enabled: true
         priority: 2
         queries:
           - id: cars_trucks
             name: Cars & Trucks
-            enabled: false
+            enabled: true
             priority: 1
             search: "(car, cars, truck, trucks)"
 
       - id: motorcycles
         name: Motorcycles
-        enabled: false
+        enabled: true
         priority: 3
         queries:
           - id: motorcycle
             name: Motorcycle
-            enabled: false
+            enabled: true
             priority: 1
             search: "(motorcycle, motorbike)"
 
       - id: other_vehicles
         name: Other Vehicles
-        enabled: false
+        enabled: true
         priority: 4
         queries:
           - id: vehicle
             name: Other Vehicles
-            enabled: false
+            enabled: true
             priority: 1
             search: "(vehicle, scooter, atv)"
 
@@ -105,136 +105,136 @@ categories:
 
           - id: desktop
             name: Desktop
-            enabled: false
+            enabled: true
             priority: 2
             search: "(desktop, desktop computer, prebuilt pc, prebuilt workstation pc)"
 
           - id: tablet
             name: Tablet
-            enabled: false
+            enabled: true
             priority: 3
             search: "(tablet, tablet pc)"
 
           - id: cpu
             name: CPU
-            enabled: false
+            enabled: true
             priority: 4
             search: "(cpu, processor)"
 
           - id: gpu
             name: GPU
-            enabled: false
+            enabled: true
             priority: 5
             search: "(gpu, graphics card, video card, RTX, Radeon)"
 
           - id: motherboard
             name: Motherboard
-            enabled: false
+            enabled: true
             priority: 6
             search: "(motherboard, mainboard)"
 
           - id: ram
             name: RAM
-            enabled: false
+            enabled: true
             priority: 7
             search: "(ram, computer memory, rgb ram, ddr4 ram, ddr5 ram)"
 
           - id: ssd
             name: SSD
-            enabled: false
+            enabled: true
             priority: 8
             search: "(ssd, solid state drive)"
 
           - id: hard_drive
             name: Hard Drive
-            enabled: false
+            enabled: true
             priority: 9
             search: "(hard drive, hdd)"
 
           - id: keyboard
             name: Keyboard
-            enabled: false
+            enabled: true
             priority: 10
             search: "(keyboard, mechanical keyboard, gaming keyboard)"
 
           - id: mouse
             name: Mouse
-            enabled: false
+            enabled: true
             priority: 11
             search: "(mouse, computer mouse, gaming mouse)"
 
       - id: cell_phones
         name: Cell Phones, Smart Watches & Accessories
-        enabled: false
+        enabled: true
         priority: 2
         queries:
           - id: smartphone
             name: Smartphone
-            enabled: false
+            enabled: true
             priority: 1
             search: "(smartphone, cell phone, mobile phone)"
 
       - id: gaming
         name: Video Games & Consoles
-        enabled: false
+        enabled: true
         priority: 3
         queries:
           - id: gaming_console
             name: Gaming Console
-            enabled: false
+            enabled: true
             priority: 1
             search: "(gaming console, console)"
 
           - id: playstation
             name: PlayStation
-            enabled: false
+            enabled: true
             priority: 2
             search: "(playstation, ps5, ps4)"
 
           - id: xbox
             name: Xbox
-            enabled: false
+            enabled: true
             priority: 3
             search: "(xbox, xbox series x, xbox series s)"
 
           - id: nintendo
             name: Nintendo
-            enabled: false
+            enabled: true
             priority: 4
             search: "(nintendo, nintendo switch)"
 
           - id: video_game
             name: Video Game
-            enabled: false
+            enabled: true
             priority: 5
             search: "(video game, pc game)"
 
       - id: cameras_photo
         name: Cameras & Photo
-        enabled: false
+        enabled: true
         priority: 4
         queries:
           - id: digital_camera
             name: Digital Camera
-            enabled: false
+            enabled: true
             priority: 1
             search: "(digital camera, dslr, mirrorless camera)"
 
           - id: camera_lens
             name: Camera Lens
-            enabled: false
+            enabled: true
             priority: 2
             search: "(camera lens, lens)"
 
           - id: camcorder
             name: Camcorder
-            enabled: false
+            enabled: true
             priority: 3
             search: "(camcorder, video camera)"
 
           - id: tripod
             name: Tripod
-            enabled: false
+            enabled: true
             priority: 4
             search: "(tripod, camera tripod)"
 
@@ -245,52 +245,52 @@ categories:
 
   - id: collectibles_art
     name: Collectibles & Art
-    enabled: false
+    enabled: true
     priority: 3
 
     subcategories:
 
       - id: trading_cards
         name: Trading Cards
-        enabled: false
+        enabled: true
         priority: 1
         queries:
           - id: trading_cards
             name: Trading Cards
-            enabled: false
+            enabled: true
             priority: 1
             search: "(trading cards, collectible cards)"
 
       - id: collectibles
         name: Collectibles
-        enabled: false
+        enabled: true
         priority: 2
         queries:
           - id: collectibles
             name: Collectibles
-            enabled: false
+            enabled: true
             priority: 1
             search: "(collectible, collectibles)"
 
       - id: coins_paper_money
         name: Coins & Paper Money
-        enabled: false
+        enabled: true
         priority: 3
         queries:
           - id: coins
             name: Coins
-            enabled: false
+            enabled: true
             priority: 1
             search: "(coins, collectible coins)"
 
       - id: sports_memorabilia
         name: Sports Memorabilia
-        enabled: false
+        enabled: true
         priority: 4
         queries:
           - id: sports_memorabilia
             name: Sports Memorabilia
-            enabled: false
+            enabled: true
             priority: 1
             search: "(sports memorabilia, signed jersey, sports collectible)"
 
@@ -301,52 +301,52 @@ categories:
 
   - id: clothing_accessories
     name: Clothing & Accessories
-    enabled: false
+    enabled: true
     priority: 4
 
     subcategories:
 
       - id: women
         name: Women
-        enabled: false
+        enabled: true
         priority: 1
         queries:
           - id: womens_clothing
             name: Women's Clothing
-            enabled: false
+            enabled: true
             priority: 1
             search: "(women clothing, womens clothing)"
 
       - id: men
         name: Men
-        enabled: false
+        enabled: true
         priority: 2
         queries:
           - id: mens_clothing
             name: Men's Clothing
-            enabled: false
+            enabled: true
             priority: 1
             search: "(men clothing, mens clothing)"
 
       - id: handbags
         name: Handbags
-        enabled: false
+        enabled: true
         priority: 3
         queries:
           - id: handbag
             name: Handbag
-            enabled: false
+            enabled: true
             priority: 1
             search: "(handbag, handbags, purse)"
 
       - id: collectible_sneakers
         name: Collectible Sneakers
-        enabled: false
+        enabled: true
         priority: 4
         queries:
           - id: sneakers
             name: Sneakers
-            enabled: false
+            enabled: true
             priority: 1
             search: "(sneakers, collectible sneakers, shoes)"
 
@@ -357,52 +357,52 @@ categories:
 
   - id: business_industrial
     name: Business & Industrial
-    enabled: false
+    enabled: true
     priority: 5
 
     subcategories:
 
       - id: modular_buildings
         name: Modular & Pre-Fabricated Buildings
-        enabled: false
+        enabled: true
         priority: 1
         queries:
           - id: modular_building
             name: Modular Building
-            enabled: false
+            enabled: true
             priority: 1
             search: "(modular building, prefab building)"
 
       - id: measurement_equipment
         name: Test, Measurement & Inspection Equipment
-        enabled: false
+        enabled: true
         priority: 2
         queries:
           - id: measurement_equipment
             name: Measurement Equipment
-            enabled: false
+            enabled: true
             priority: 1
             search: "(test equipment, measurement equipment, inspection equipment)"
 
       - id: heavy_equipment
         name: Heavy Equipment, Parts & Attachments
-        enabled: false
+        enabled: true
         priority: 3
         queries:
           - id: heavy_equipment
             name: Heavy Equipment
-            enabled: false
+            enabled: true
             priority: 1
             search: "(heavy equipment, construction equipment)"
 
       - id: restaurant_food_service
         name: Restaurant & Food Service
-        enabled: false
+        enabled: true
         priority: 4
         queries:
           - id: restaurant_equipment
             name: Restaurant Equipment
-            enabled: false
+            enabled: true
             priority: 1
             search: "(restaurant equipment, food service equipment)"
 
@@ -413,52 +413,52 @@ categories:
 
   - id: home_garden
     name: Home & Garden
-    enabled: false
+    enabled: true
     priority: 6
 
     subcategories:
 
       - id: yard_garden
         name: Yard, Garden & Outdoor Living Items
-        enabled: false
+        enabled: true
         priority: 1
         queries:
           - id: garden
             name: Garden
-            enabled: false
+            enabled: true
             priority: 1
             search: "(garden, gardening, outdoor living)"
 
       - id: tools_workshop
         name: Tools & Workshop Equipment
-        enabled: false
+        enabled: true
         priority: 2
         queries:
           - id: tools
             name: Tools
-            enabled: false
+            enabled: true
             priority: 1
             search: "(tools, workshop tools)"
 
       - id: home_improvement
         name: Home Improvement
-        enabled: false
+        enabled: true
         priority: 3
         queries:
           - id: home_improvement
             name: Home Improvement
-            enabled: false
+            enabled: true
             priority: 1
             search: "(home improvement, building materials)"
 
       - id: kitchen_dining
         name: Kitchen, Dining & Bar Supplies
-        enabled: false
+        enabled: true
         priority: 4
         queries:
           - id: kitchen
             name: Kitchen
-            enabled: false
+            enabled: true
             priority: 1
             search: "(kitchen, kitchen supplies, dining)"
 
@@ -469,41 +469,41 @@ categories:
 
   - id: sporting_goods
     name: Sporting Goods
-    enabled: false
+    enabled: true
     priority: 7
 
     subcategories:
 
       - id: hunting
         name: Hunting Equipment
-        enabled: false
+        enabled: true
         priority: 1
         queries:
           - id: hunting_equipment
             name: Hunting Equipment
-            enabled: false
+            enabled: true
             priority: 1
             search: "(hunting equipment, hunting gear)"
 
       - id: golf
         name: Golf Equipment
-        enabled: false
+        enabled: true
         priority: 2
         queries:
           - id: golf_equipment
             name: Golf Equipment
-            enabled: false
+            enabled: true
             priority: 1
             search: "(golf equipment, golf clubs, golf gear)"
 
       - id: outdoor_sports
         name: Outdoor Sports
-        enabled: false
+        enabled: true
         priority: 3
         queries:
           - id: outdoor_sports
             name: Outdoor Sports
-            enabled: false
+            enabled: true
             priority: 1
             search: "(outdoor sports, camping sports)"
 
@@ -514,41 +514,41 @@ categories:
 
   - id: jewelry_watches
     name: Jewelry & Watches
-    enabled: false
+    enabled: true
     priority: 8
 
     subcategories:
 
       - id: luxury_watches
         name: Luxury Watches
-        enabled: false
+        enabled: true
         priority: 1
         queries:
           - id: luxury_watch
             name: Luxury Watch
-            enabled: false
+            enabled: true
             priority: 1
             search: "(luxury watch, luxury watches)"
 
       - id: wristwatches
         name: Wristwatches
-        enabled: false
+        enabled: true
         priority: 2
         queries:
           - id: wristwatch
             name: Wristwatch
-            enabled: false
+            enabled: true
             priority: 1
             search: "(wristwatch, wrist watch)"
 
       - id: fashion_jewelry
         name: Fashion Jewelry
-        enabled: false
+        enabled: true
         priority: 3
         queries:
           - id: jewelry
             name: Fashion Jewelry
-            enabled: false
+            enabled: true
             priority: 1
             search: "(fashion jewelry, jewelry)"
 
@@ -559,58 +559,58 @@ categories:
 
   - id: other
     name: Other Categories
-    enabled: false
+    enabled: true
     priority: 9
 
     subcategories:
 
       - id: books_movies_music
         name: Books, Movies & Music
-        enabled: false
+        enabled: true
         priority: 1
         queries:
           - id: books
             name: Books
-            enabled: false
+            enabled: true
             priority: 1
             search: "(book, books)"
 
           - id: movies
             name: Movies
-            enabled: false
+            enabled: true
             priority: 2
             search: "(movie, movies, dvd)"
 
           - id: music
             name: Music
-            enabled: false
+            enabled: true
             priority: 3
             search: "(music, album, cd, vinyl)"
 
       - id: toys_hobbies
         name: Toys & Hobbies
-        enabled: false
+        enabled: true
         priority: 2
         queries:
           - id: toys
             name: Toys
-            enabled: false
+            enabled: true
             priority: 1
             search: "(toy, toys)"
 
           - id: hobbies
             name: Hobbies
-            enabled: false
+            enabled: true
             priority: 2
             search: "(hobby, hobbies, model)"
 
       - id: health_beauty
         name: Health & Beauty
-        enabled: false
+        enabled: true
         priority: 3
         queries:
           - id: health_beauty
             name: Health & Beauty
-            enabled: false
+            enabled: true
             priority: 1
             search: "(health, beauty, skincare)"
