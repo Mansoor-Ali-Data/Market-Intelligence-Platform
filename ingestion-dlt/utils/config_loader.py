@@ -1,211 +1,103 @@
 """
 Configuration loading utilities.
-
-Responsibilities:
-- Load YAML configuration files.
-- Provide access to enabled categories, subcategories, and queries.
-- Preserve YAML comments and structure when configurations are later
-  modified by tooling such as map_categories_yaml.py.
-
-YAML implementation:
-- ruamel.yaml
 """
 
 from pathlib import Path
-from typing import Any
 
-from ruamel.yaml import YAML
-
-from utils.logger import get_logger
-
-logger = get_logger(__name__)
+import yaml
 
 
-# ============================================================================
-# YAML CONFIGURATION
-# ============================================================================
-
-_yaml = YAML()
-
-# Preserve formatting/comments when a YAML document is loaded and later saved.
-_yaml.preserve_quotes = True
-
-# Prevent ruamel.yaml from unnecessarily wrapping long lines.
-_yaml.width = 4096
-
-
-# ============================================================================
-# LOAD CONFIGURATION
-# ============================================================================
-
-def load_config(config_path: Path) -> dict[str, Any]:
+def load_config(config_file: Path) -> dict:
     """
     Load a YAML configuration file.
 
     Args:
-        config_path: Path to the YAML configuration file.
+        config_file: Path to the configuration file.
 
     Returns:
-        Parsed YAML configuration.
+        Configuration dictionary.
 
     Raises:
         FileNotFoundError:
             If the configuration file does not exist.
 
         ValueError:
-            If the YAML document is empty or does not contain a mapping.
+            If the configuration file is empty.
 
-        Exception:
-            If the YAML document cannot be parsed.
+        yaml.YAMLError:
+            If the YAML is invalid.
     """
-
-    config_path = Path(config_path)
-
-    if not config_path.exists():
+    if not config_file.exists():
         raise FileNotFoundError(
-            f"Configuration file not found: {config_path}"
+            f"Configuration file not found: {config_file}"
         )
 
-    if not config_path.is_file():
-        raise ValueError(
-            f"Configuration path is not a file: {config_path}"
-        )
-
-    logger.info("Loading configuration | file=%s", config_path)
-
-    try:
-        with config_path.open("r", encoding="utf-8") as file:
-            config = _yaml.load(file)
-
-    except Exception:
-        logger.exception(
-            "Failed to parse YAML configuration | file=%s",
-            config_path,
-        )
-        raise
+    with config_file.open("r", encoding="utf-8") as file:
+        config = yaml.safe_load(file)
 
     if config is None:
         raise ValueError(
-            f"Configuration file is empty: {config_path}"
+            f"Configuration file is empty: {config_file}"
         )
-
-    if not isinstance(config, dict):
-        raise ValueError(
-            f"Expected YAML mapping at root of configuration: {config_path}"
-        )
-
-    logger.info(
-        "Configuration loaded successfully | file=%s",
-        config_path,
-    )
 
     return config
 
-
 # ============================================================================
-# ENABLED CATEGORIES
+# Metadata Helper Functions
 # ============================================================================
 
-def get_enabled_categories(
-    categories_config: dict[str, Any],
-) -> list[dict[str, Any]]:
+def get_enabled_categories(categories_config: dict) -> list[dict]:
     """
-    Return enabled top-level categories.
+    Return all enabled categories.
 
     Args:
         categories_config:
             Parsed categories.yml configuration.
 
     Returns:
-        List of enabled category configurations.
+        List of enabled categories.
     """
 
-    categories = categories_config.get("categories", [])
-
-    if not isinstance(categories, list):
-        raise ValueError(
-            "Invalid categories configuration: "
-            "'categories' must be a list."
-        )
-
-    enabled_categories = [
+    return [
         category
-        for category in categories
+        for category in categories_config["categories"]
         if category.get("enabled", False)
     ]
 
-    logger.info(
-        "Enabled categories | count=%s",
-        len(enabled_categories),
-    )
 
-    return enabled_categories
-
-
-# ============================================================================
-# ENABLED SUBCATEGORIES
-# ============================================================================
-
-def get_enabled_subcategories(
-    category: dict[str, Any],
-) -> list[dict[str, Any]]:
+def get_enabled_subcategories(category: dict) -> list[dict]:
     """
-    Return enabled subcategories for a category.
+    Return all enabled subcategories for a category.
 
     Args:
         category:
-            Category configuration.
+            Category dictionary.
 
     Returns:
-        List of enabled subcategory configurations.
+        List of enabled subcategories.
     """
 
-    subcategories = category.get("subcategories", [])
-
-    if not isinstance(subcategories, list):
-        raise ValueError(
-            f"Invalid subcategory configuration | category={category.get('id')}"
-        )
-
-    enabled_subcategories = [
+    return [
         subcategory
-        for subcategory in subcategories
-        if subcategory.get("enabled", False)
+        for subcategory in category["subcategories"]
+        if subcategory.get("enabled", True)
     ]
 
-    return enabled_subcategories
 
-
-# ============================================================================
-# ENABLED QUERIES
-# ============================================================================
-
-def get_enabled_queries(
-    subcategory: dict[str, Any],
-) -> list[dict[str, Any]]:
+def get_enabled_queries(subcategory: dict) -> list[dict]:
     """
-    Return enabled search queries for a subcategory.
+    Return all enabled search queries for a subcategory.
 
     Args:
         subcategory:
-            Subcategory configuration.
+            Subcategory dictionary.
 
     Returns:
-        List of enabled query configurations.
+        List of enabled search queries.
     """
 
-    queries = subcategory.get("queries", [])
-
-    if not isinstance(queries, list):
-        raise ValueError(
-            f"Invalid query configuration | "
-            f"subcategory={subcategory.get('id')}"
-        )
-
-    enabled_queries = [
+    return [
         query
-        for query in queries
-        if query.get("enabled", False)
+        for query in subcategory["queries"]
+        if query.get("enabled", True)
     ]
-
-    return enabled_queries
