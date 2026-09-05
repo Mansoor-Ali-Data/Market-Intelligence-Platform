@@ -4,8 +4,22 @@ Configuration loading utilities.
 
 from pathlib import Path
 
-import yaml
+from ruamel.yaml import YAML
 
+
+# ============================================================================
+# YAML CONFIGURATION
+# ============================================================================
+
+_yaml = YAML()
+
+# Preserve quotes when the YAML file is later written back.
+_yaml.preserve_quotes = True
+
+
+# ============================================================================
+# CONFIGURATION LOADER
+# ============================================================================
 
 def load_config(config_file: Path) -> dict:
     """
@@ -24,7 +38,7 @@ def load_config(config_file: Path) -> dict:
         ValueError:
             If the configuration file is empty.
 
-        yaml.YAMLError:
+        ruamel.yaml.parser.ParserError:
             If the YAML is invalid.
     """
     if not config_file.exists():
@@ -33,7 +47,7 @@ def load_config(config_file: Path) -> dict:
         )
 
     with config_file.open("r", encoding="utf-8") as file:
-        config = yaml.safe_load(file)
+        config = _yaml.load(file)
 
     if config is None:
         raise ValueError(
@@ -41,6 +55,7 @@ def load_config(config_file: Path) -> dict:
         )
 
     return config
+
 
 # ============================================================================
 # Metadata Helper Functions
