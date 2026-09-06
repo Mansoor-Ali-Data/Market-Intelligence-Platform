@@ -222,19 +222,25 @@ def ebay_source(extraction_date: date):
 
     filters = api["filter"]
 
-    
+    filter_values = [
+        filters["item_start_date"].format(
+            window_start=window.start,
+            window_end=window.end,
+        ),
+        filters["seller_account_type"],
+        filters["condition"],
+    ]
 
     params = {
+        parameters["search"]: "{resources.search_queries.search}",
+        parameters["limit"]: api["default_limit"],
+        parameters["filter"]: ",".join(filter_values),
+    }
 
-            parameters["search"]: "{resources.search_queries.search}",
-
-            parameters["limit"]: api["default_limit"],
-
-            parameters["filter"]: filters["item_start_date"].format(
-                window_start=window.start,
-                window_end=window.end,
-            ),
-        }
+    logger.info(
+        "Browse API filters enabled | filters=%s",
+        filter_values,
+    )
 
     # Sorting is optional.
     # If sort is absent from api_config.yml, no sort
