@@ -10,12 +10,6 @@ Responsibilities
 - Track aggregate request statistics.
 - Log request-level metrics.
 
-This module does NOT:
-- control pagination
-- implement authentication
-- modify API parameters
-- perform retries
-- contain business logic
 """
 
 from dataclasses import dataclass
