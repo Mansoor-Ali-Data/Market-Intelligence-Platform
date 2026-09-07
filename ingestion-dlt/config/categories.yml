@@ -4,21 +4,6 @@
 # Purpose:
 #   Defines the business/search domains, subcategories, and search expressions
 #   used during eBay Browse API ingestion.
-#
-# IMPORTANT:
-#   These are OUR search domains.
-#   They are NOT eBay's official category hierarchy.
-#
-#   eBay's actual category classification is taken from the API response
-#   and preserved for downstream Bronze/Silver processing.
-#
-#
-# Notes:
-#   id         : Stable machine identifier
-#   name       : Human-readable name
-#   enabled    : Enable/disable ingestion
-#   priority   : Controls ingestion order
-#   search     : eBay Browse API search expression
 # ============================================================================
 
 categories:
