@@ -20,7 +20,9 @@ api:
 
   data_selector: itemSummaries
 
-  sort: "newlyListed"
+  discovery:
+    max_api_requests: 1000
+    max_pages_per_query: 18
 
 
   # --------------------------------------------------------------------------
@@ -34,7 +36,7 @@ api:
     # Example:
     #
     # itemStartDate:[2026-08-13T00:00:00Z..2026-08-14T00:00:00Z]
-    #
+
     item_start_date: "itemStartDate:[{window_start}..{window_end}]"
     
     seller_account_type: "sellerAccountTypes:{{BUSINESS}}"
@@ -80,3 +82,9 @@ pipeline:
   pipeline_name: "ebay_browse_ingestion"
 
   dataset_name: "ebay"
+
+  # --------------------------------------------------------------------------
+  # Discovery Configuration
+  # --------------------------------------------------------------------------
+
+ 
