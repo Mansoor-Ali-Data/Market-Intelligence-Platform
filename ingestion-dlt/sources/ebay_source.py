@@ -144,6 +144,39 @@ def ebay_source(extraction_date: date):
     api = api_config["api"]
 
     # --------------------------------------------------------
+    # Discovery API Budget Validation
+    # --------------------------------------------------------
+
+    enabled_query_count = sum(
+        1
+        for category in get_enabled_categories(categories_config)
+        for subcategory in get_enabled_subcategories(category)
+        for query in get_enabled_queries(subcategory)
+    )
+
+    max_possible_requests = (
+        enabled_query_count
+        * api["discovery"]["max_pages_per_query"]
+    )
+
+    if max_possible_requests > api["discovery"]["max_api_requests"]:
+        raise ValueError(
+            f"Discovery configuration exceeds API budget: "
+            f"{max_possible_requests} > "
+            f"{api['discovery']['max_api_requests']}"
+        )
+
+    logger.info(
+        "Discovery API budget validated | "
+        "enabled_queries=%s | max_pages_per_query=%s | "
+        "max_possible_requests=%s | configured_budget=%s",
+        enabled_query_count,
+        api["discovery"]["max_pages_per_query"],
+        max_possible_requests,
+        api["discovery"]["max_api_requests"],
+    )
+
+    # --------------------------------------------------------
     # Extraction Window
     # --------------------------------------------------------
 
@@ -242,18 +275,6 @@ def ebay_source(extraction_date: date):
         filter_values,
     )
 
-    # Sorting is optional.
-    # If sort is absent from api_config.yml, no sort
-    # parameter is sent to eBay.
-    if api.get("sort"):
-
-        params["sort"] = api["sort"]
-
-        logger.info(
-            "Browse API sorting enabled | sort=%s",
-            api["sort"],
-        )
-
     # --------------------------------------------------------
     # Browse Search Resource
     # --------------------------------------------------------
@@ -282,7 +303,12 @@ def ebay_source(extraction_date: date):
                 limit=api["default_limit"],
                 offset_param=parameters["offset"],
                 limit_param=parameters["limit"],
-                maximum_offset=10000,
+                maximum_offset=(
+                    api["discovery"]["max_pages_per_query"]
+                    * api["default_limit"]
+                ),
+                    total_path="total",
+                
             ),
 
             # JSON field containing the API records.
