@@ -72,7 +72,7 @@ def write_discovered_items(df: pd.DataFrame) -> None:
             target_alias="target",
         )
         .when_not_matched_insert(
-            values={
+            updates={
                 "item_id": "source.item_id",
             }
         )
