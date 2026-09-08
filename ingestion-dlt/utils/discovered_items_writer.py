@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 from deltalake.exceptions import TableNotFoundError
-from gcp_auth import get_gcp_credentials_path
+from .gcp_auth import get_gcp_credentials_path
 
 
 CURATED_BUCKET = "market-intelligence-curated"
@@ -37,6 +37,14 @@ def write_discovered_items(df: pd.DataFrame) -> None:
         .dropna()
         .drop_duplicates()
         .reset_index(drop=True)
+    )
+
+    item_ids["is_enriched"] = False
+
+    item_ids["last_enriched_at"] = pd.Series(
+        pd.NaT,
+        index=item_ids.index,
+        dtype="datetime64[ns, UTC]",
     )
 
     if item_ids.empty:

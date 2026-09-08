@@ -4,7 +4,7 @@ Read discovered eBay item IDs from Browse Search Raw data.
 
 import gcsfs
 import pandas as pd
-from gcp_auth import get_gcp_credentials_path
+from .gcp_auth import get_gcp_credentials_path
 
 
 RAW_BUCKET = "market-intelligence-raw"
