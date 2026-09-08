@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
+from deltalake.exceptions import TableNotFoundError
 from gcp_auth import get_gcp_credentials_path
 
 
@@ -83,7 +84,7 @@ def _delta_table_exists(
     path: str,
     storage_options: dict,
 ) -> bool:
-    """Return whether a Delta table already exists."""
+    """Return whether a Delta table exists at the given path."""
 
     try:
         DeltaTable(
@@ -91,7 +92,8 @@ def _delta_table_exists(
             storage_options=storage_options,
         )
         return True
-    except Exception:
+
+    except TableNotFoundError:
         return False
 
 
