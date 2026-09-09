@@ -1,15 +1,17 @@
 """
-Request-level logging and statistics for the eBay Browse API.
+Request-level logging and statistics for eBay Browse API ingestion.
 
 Responsibilities
 ----------------
 - Execute HTTP requests through requests.Session.
 - Measure request duration.
-- Capture pagination parameters.
+- Capture request parameters.
 - Count records returned by eBay.
 - Track aggregate request statistics.
 - Log request-level metrics.
 
+The session is intentionally observational. It does not implement
+authentication, retries, pagination, or request modification.
 """
 
 from dataclasses import dataclass
@@ -31,7 +33,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class EbayRequestStats:
-    """Track eBay Browse API request metrics for one ingestion run."""
+    """Track eBay API request metrics for one ingestion run."""
 
     total_requests: int = 0
     successful_requests: int = 0
@@ -83,7 +85,7 @@ class EbayRequestStats:
         """Log aggregate request statistics."""
 
         logger.info("=" * 60)
-        logger.info("eBay Browse API Request Summary")
+        logger.info("eBay API Request Summary")
         logger.info("=" * 60)
 
         logger.info(
@@ -168,7 +170,7 @@ class EbayRequestLoggingSession(requests.Session):
 
             offset = query_params.get(
                 "offset",
-                ["0"],
+                [""],
             )[0]
 
             limit = query_params.get(
@@ -199,7 +201,7 @@ class EbayRequestLoggingSession(requests.Session):
             # ------------------------------------------------
 
             logger.info(
-                "eBay Browse API request | "
+                "eBay API request | "
                 "number=%s | "
                 "query=%s | "
                 "offset=%s | "
@@ -226,7 +228,7 @@ class EbayRequestLoggingSession(requests.Session):
             self.stats.total_duration += duration
 
             logger.exception(
-                "eBay Browse API request failed | duration=%.2fs",
+                "eBay API request failed | duration=%.2fs",
                 duration,
             )
 
@@ -239,7 +241,10 @@ class EbayRequestLoggingSession(requests.Session):
     @staticmethod
     def _get_record_count(response) -> int:
         """
-        Count item records returned by the eBay Browse Search API.
+        Determine the number of logical records returned by eBay.
+
+        Browse Search returns a collection under ``itemSummaries``.
+        Item Details returns a single item object containing ``itemId``.
         """
 
         try:
@@ -251,12 +256,25 @@ class EbayRequestLoggingSession(requests.Session):
         if not isinstance(payload, dict):
             return 0
 
+        # ----------------------------------------------------
+        # Browse Search response
+        # ----------------------------------------------------
+
         records = payload.get(
             "itemSummaries",
-            [],
         )
 
         if isinstance(records, list):
             return len(records)
+
+        # ----------------------------------------------------
+        # Item Details response
+        # ----------------------------------------------------
+
+        if (
+            "itemId" in payload
+            or "item_id" in payload
+        ):
+            return 1
 
         return 0
