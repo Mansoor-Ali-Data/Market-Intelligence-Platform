@@ -5,14 +5,18 @@
 api:
 
   # --------------------------------------------------------------------------
-  # Endpoint
+  # Base API Configuration
   # --------------------------------------------------------------------------
 
   base_url: "https://api.ebay.com"
+  marketplace_id: "EBAY_US"
+
+  # --------------------------------------------------------------------------
+  # Discovery - Browse Search
+  # --------------------------------------------------------------------------
+
   endpoint: "/buy/browse/v1/item_summary/search"
   method: "GET"
-
-  marketplace_id: "EBAY_US"
 
   default_limit: 200
 
@@ -23,7 +27,6 @@ api:
   discovery:
     max_api_requests: 1000
     max_pages_per_query: 18
-
 
   # --------------------------------------------------------------------------
   # Browse Search Filters
@@ -38,14 +41,13 @@ api:
     # itemStartDate:[2026-08-13T00:00:00Z..2026-08-14T00:00:00Z]
 
     item_start_date: "itemStartDate:[{window_start}..{window_end}]"
-    
+
     seller_account_type: "sellerAccountTypes:{{BUSINESS}}"
-    
+
     condition: "conditions:{{NEW}}"
 
-
   # --------------------------------------------------------------------------
-  # API Parameter Mapping
+  # Browse Search Parameter Mapping
   # --------------------------------------------------------------------------
 
   parameters:
@@ -54,6 +56,18 @@ api:
     limit: "limit"
     offset: "offset"
     filter: "filter"
+
+  # --------------------------------------------------------------------------
+  # Enrichment - Item Details
+  # --------------------------------------------------------------------------
+
+  enrichment:
+
+    endpoint: "/buy/browse/v1/item/{item_id}"
+
+    method: "GET"
+
+    data_selector: "$"
 
 
 # ----------------------------------------------------------------------------
@@ -82,9 +96,3 @@ pipeline:
   pipeline_name: "ebay_browse_ingestion"
 
   dataset_name: "ebay"
-
-  # --------------------------------------------------------------------------
-  # Discovery Configuration
-  # --------------------------------------------------------------------------
-
- 
