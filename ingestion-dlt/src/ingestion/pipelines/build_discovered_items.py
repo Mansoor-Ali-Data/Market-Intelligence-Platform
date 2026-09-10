@@ -1,5 +1,5 @@
-from utils.discovered_items_reader import read_discovered_item_ids
-from utils.discovered_items_writer import write_discovered_items
+from ingestion.utils.discovered_items_reader import read_discovered_item_ids
+from ingestion.utils.discovered_items_writer import write_discovered_items
 
 
 def main() -> None:

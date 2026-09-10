@@ -19,31 +19,31 @@ Responsibilities:
 import os
 
 from datetime import date
-from utils.data_window import build_daily_window
+from ingestion.utils.data_window import build_daily_window
 
 import dlt
 from dotenv import load_dotenv
 
 from dlt.sources.rest_api import rest_api_source
 
-from sources.ebay_auth import EbayAuth
+from ingestion.sources.ebay_auth import EbayAuth
 
-from utils.config_loader import (
+from ingestion.utils.config_loader import (
     load_config,
     get_enabled_categories,
     get_enabled_subcategories,
     get_enabled_queries,
 )
 
-from utils.ebay_request_logger import EbayRequestLoggingSession
+from ingestion.utils.ebay_request_logger import EbayRequestLoggingSession
 
-from utils.project_paths import (
+from ingestion.utils.project_paths import (
     PROJECT_ROOT,
     API_CONFIG_FILE,
     CATEGORIES_FILE,
 )
 
-from utils.logger import get_logger
+from ingestion.utils.logger import get_logger
 
 from dlt.sources.helpers.rest_client.paginators import OffsetPaginator
 

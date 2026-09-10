@@ -69,6 +69,8 @@ api:
 
     data_selector: "$"
 
+    max_api_requests_per_run: 5000
+
 
 # ----------------------------------------------------------------------------
 # OAuth Authentication Configuration

@@ -1,7 +1,7 @@
 import argparse
 from datetime import date, datetime, timedelta, timezone
 
-from pipelines.ebay_pipeline import run_pipeline
+from src.ingestion.pipelines.ebay_pipeline import run_pipeline
 
 
 def parse_args() -> argparse.Namespace:

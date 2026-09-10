@@ -16,16 +16,16 @@ Responsibilities
 import dlt
 from dotenv import load_dotenv
 from datetime import date
-from sources.ebay_source import ebay_source
+from ingestion.sources.ebay_source import ebay_source
 
-from utils.config_loader import load_config
+from ingestion.utils.config_loader import load_config
 
-from utils.project_paths import (
+from ingestion.utils.project_paths import (
     PROJECT_ROOT,
     API_CONFIG_FILE,
 )
 
-from utils.logger import get_logger
+from ingestion.utils.logger import get_logger
 
 
 # --------------------------------------------------
