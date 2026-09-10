@@ -58,6 +58,17 @@ This manifest acts as the **control dataset** for incremental enrichment. Its co
               item_details
                    │
                    ▼
+             DLT load_info
+                   │
+                   ▼
+            loads_ids from
+             successful run
+                   │
+                   ▼
+       Read item_details files
+       for those specific loads
+                   │
+                   ▼
          Extract successful item_ids
                    │
                    ▼
@@ -200,28 +211,31 @@ The detailed response is stored directly in Raw storage:
 
 ## 8. Determining Successfully Enriched Items
 
-After enrichment, the ingestion layer reads `item_details` Raw data and extracts the `item_ids` represented by successfully landed detail records. The reader may encounter records from previous enrichment runs as well. This is intentional because the subsequent manifest MERGE is idempotent
+After enrichment, the DLT run returns `load_info`. The pipeline obtains the successful DLT load ID(s) from:
 
-For example, today's successful enrichment produces: `A`, `B`, `C`, `D`, `E`.
+`load_info.loads_ids`
 
-The ingestion layer creates a small DataFrame:
+The ingestion layer passes those load IDs to the Raw reader. The reader looks only for `item_details` files belonging to those specific DLT loads:
 
-| `item_id` |
-| :---: |
-| `A` |
-| `B` |
-| `C` |
-| `D` |
-| `E` |
+`item_details/{load_id}.*.jsonl.gz`
+
+This makes enrichment-state processing **load-aware**. The pipeline does not scan the complete historical `item_details` dataset after every enrichment run.
+
+For example, if the current successful DLT run produces:
+
+`load_id = 1789053753.1243174`
+
+the reader processes only:
+
+`1789053753.1243174.*.jsonl.gz`
+
+and extracts the successfully landed `item_id` values.
 
 These IDs are then used to update the `discovered_items` Delta table.
 
 > [!IMPORTANT]
-> **Important design decision:**  
-> The successful-ID reader may encounter IDs that were enriched on previous days as well. That is acceptable. We intentionally allow the reader to process accumulated successful `item_details` records because the manifest update is **idempotent**.  
-> At our current scale, this keeps the design simple and avoids introducing unnecessary DLT load/run tracking.
-
----
+> **Load-aware design decision:**  
+> The successful-ID reader is scoped to the DLT load ID(s) produced by the current enrichment execution. This prevents repeated scans of historical `item_details` Raw data and makes the state-update step directly tied to the output of the current DLT run.
 
 ## 9. Enrichment-State MERGE
 
@@ -266,28 +280,11 @@ For matched records:
 
 ## 10. What Happens the Next Day?
 
-This is where the design becomes truly incremental. The next day, the reader again filters for:
+This is where the design becomes truly incremental. The next enrichment run again filters the manifest for:
 
 `is_enriched = false`
 
-```text
-A  →  true   →  skip
-B  →  true   →  skip
-C  →  true   →  skip
-D  →  true   →  skip
-```
-
-Only genuinely pending items are selected. For example, if a newly discovered product `E` is inserted:
-
-| `item_id` | `is_enriched` | Next Day Outcome |
-| :---: | :---: | :--- |
-| **A** | `true` | Skip |
-| **B** | `true` | Skip |
-| **C** | `true` | Skip |
-| **D** | `true` | Skip |
-| **E** | `false` | **Selected for enrichment** |
-
-The next enrichment run selects only **`E`**.
+The selected IDs are passed to DLT. After the DLT run completes, the pipeline obtains the newly produced `load_id(s)` from `load_info.loads_ids` and reads only the corresponding `item_details` Raw files.
 
 ### 10.1 Daily Incremental Enrichment Cycle
 
@@ -301,7 +298,14 @@ The next enrichment run selects only **`E`**.
              DLT getItem
                   │
                   ▼
-           item_details Raw
+              load_info
+                  │
+                  ▼
+             loads_ids
+                  │
+                  ▼
+     Read item_details for those
+          specific load IDs
                   │
                   ▼
        Extract landed item_ids
@@ -317,9 +321,7 @@ The next enrichment run selects only **`E`**.
 ```
 
 > [!NOTE]
-> The successful-ID extraction may process previously enriched IDs again because `item_details` Raw is cumulative. This does not cause duplicate manifest records or incorrect state because the enrichment-state MERGE is keyed by `item_id` and is idempotent.
-
----
+> The successful-ID extraction is scoped to the DLT load ID(s) produced by the current run. Historical `item_details` files are not scanned as part of the normal state-update flow.
 
 ## 11. Failure Handling
 
@@ -373,31 +375,62 @@ There are two distinct operations executed against the same Delta table:
 Pandas is used strictly for lightweight ingestion-control processing:
 
 ```text
-Raw Browse Search  ──►  Pandas  ──►  item_id extraction/deduplication  ──►  Delta Manifest
+Raw Browse Search
+        │
+        ▼
+     Pandas
+        │
+        ├── item_id extraction
+        ├── deduplication
+        └── manifest preparation
+        │
+        ▼
+Delta Manifest
+
+Raw item_details for current DLT load(s)
+        │
+        ▼
+     Pandas
+        │
+        └── successful item_id extraction
 ```
 
-The manifest currently contains approximately hundreds of thousands of IDs and only three columns, making Pandas ideal for this control-plane workload. We are **not** using Pandas for analytical data transformations.
+The manifest currently contains approximately hundreds of thousands of IDs and only three columns, making Pandas appropriate for this control-plane workload. We are **not** using Pandas for analytical data transformations.
 
 ### Clear Division of Responsibilities:
-- 🚀 **DLT:** API extraction, pagination, authentication, retries, and raw ingestion.
-- 🐼 **Pandas:** Lightweight ingestion control and manifest processing.
+- 🚀 **DLT:** API extraction, pagination, authentication, retries, concurrency, and raw ingestion.
+- 🐼 **Pandas:** Lightweight ingestion-control processing, manifest preparation, and load-scoped successful-ID extraction.
 - ⚡ **PySpark:** Heavyweight Bronze, Silver, and Gold analytical transformations.
 
----
+## 14. Why We Use DLT Load IDs
 
-## 14. Why We Are Not Adding Run IDs Yet
+The enrichment pipeline already receives the DLT execution result through `load_info`. We use:
 
-An alternative design would track `enrichment_run_id`, `load_id`, and `batch_id`, associating every `item_details` record with a specific execution run. That would allow the success extractor to read only the current run.
+`load_info.loads_ids`
 
-For the current MVP, we intentionally avoid this additional orchestration state:
+to identify the Raw load package(s) produced by the current execution.
+
+This gives us execution-level lineage without introducing a separate application-managed `enrichment_run_id` or `batch_id`.
 
 ```text
-Read accumulated successful item_ids  ──►  MERGE  ──►  Idempotent state update
+DLT enrichment run
+        │
+        ▼
+   load_info.loads_ids
+        │
+        ▼
+item_details/{load_id}.*.jsonl.gz
+        │
+        ▼
+successful item_ids
+        │
+        ▼
+      MERGE
 ```
 
-Because the control dataset is small relative to the actual product data and the `MERGE` is keyed by `item_id`, repeated successful IDs do not create duplicates. If volume grows substantially in the future, load/run-level filtering can be introduced.
+This design reuses DLT's existing ingestion execution state rather than building a second run-tracking mechanism.
 
----
+If future requirements need richer business-level lineage, additional run metadata can be introduced later.
 
 ## 15. Final Responsibility Boundary
 
@@ -413,6 +446,7 @@ The complete end-to-end responsibility architecture:
 │ • Retries & Backoff                         │
 │ • Concurrency & Workers                     │
 │ • Raw Loading                               │
+│ • DLT load IDs                              │
 └──────────────────────┬──────────────────────┘
                        │
                        ▼
@@ -440,7 +474,56 @@ The complete end-to-end responsibility architecture:
 
 ---
 
-## 16. Key Design Principle
+## 16. Current Implementation Status
+
+The ingestion/enrichment control flow has been validated through canary runs.
+
+### Current state
+
+- Discovery manifest contains **178,962** logical `item_id` records.
+- **20** items have been successfully enriched in the validated canary runs.
+- **178,942** items remain pending enrichment.
+- Successful enrichment updates `is_enriched = true` and `last_enriched_at`.
+- The enrichment pipeline obtains DLT `load_id(s)` automatically from `load_info.loads_ids`.
+- Raw `item_details` processing is scoped to those DLT load ID(s).
+- The repository has been restructured into a standard `src/ingestion` Python package.
+
+### Repository structure
+
+```text
+ingestion-dlt/
+├── config/
+├── docs/
+├── tests/
+├── src/
+│   └── ingestion/
+│       ├── pipelines/
+│       ├── sources/
+│       └── utils/
+├── .dlt/
+├── run_pipeline.py
+├── pyproject.toml
+└── uv.lock
+```
+
+### Next engineering phase
+
+The remaining ingestion milestone is the production enrichment batch. After ingestion is stabilized, the platform moves into the PySpark medallion layer:
+
+```text
+Raw GCS
+   ↓
+Bronze
+   ↓
+Silver
+   ↓
+Gold
+```
+
+The Bronze/Silver/Gold pipelines will remain separate from DLT and will be implemented as metadata-driven PySpark transformations.
+
+
+## 17. Key Design Principle
 
 > [!IMPORTANT]
 > - **Raw** tells us what **eBay returned**.

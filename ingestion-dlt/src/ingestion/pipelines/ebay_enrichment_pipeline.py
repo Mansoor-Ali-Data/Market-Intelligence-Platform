@@ -26,7 +26,7 @@ DATASET_NAME = "ebay"
 logger = get_logger(__name__)
 
 
-def main() -> None:
+def main(max_items: int | None = None) -> None:
 
     pipeline = dlt.pipeline(
         pipeline_name=PIPELINE_NAME,
@@ -43,7 +43,7 @@ def main() -> None:
     # ---------------------------------------------------------
 
     load_info = pipeline.run(
-        ebay_enrichment_source()
+        ebay_enrichment_source(max_items=max_items)
     )
 
     # ---------------------------------------------------------
