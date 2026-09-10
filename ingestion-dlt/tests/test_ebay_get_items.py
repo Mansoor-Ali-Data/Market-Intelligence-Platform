@@ -5,9 +5,9 @@ import os
 import requests
 from dotenv import load_dotenv
 
-from sources.ebay_auth import EbayAuth
-from utils.project_paths import PROJECT_ROOT, API_CONFIG_FILE
-from utils.config_loader import load_config
+from ingestion.sources.ebay_auth import EbayAuth
+from ingestion.utils.project_paths import PROJECT_ROOT, API_CONFIG_FILE
+from ingestion.utils.config_loader import load_config
 
 
 # ============================================================

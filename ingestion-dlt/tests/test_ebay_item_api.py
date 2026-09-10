@@ -29,11 +29,11 @@ from threading import current_thread
 import dlt
 from dotenv import load_dotenv
 
-from sources.ebay_auth import EbayAuth
-from utils.config_loader import load_config
-from utils.ebay_request_logger import EbayRequestLoggingSession
-from utils.logger import get_logger
-from utils.project_paths import PROJECT_ROOT, API_CONFIG_FILE
+from ingestion.sources.ebay_auth import EbayAuth
+from ingestion.utils.config_loader import load_config
+from ingestion.utils.ebay_request_logger import EbayRequestLoggingSession
+from ingestion.utils.logger import get_logger
+from ingestion.utils.project_paths import PROJECT_ROOT, API_CONFIG_FILE
 
 
 # ============================================================

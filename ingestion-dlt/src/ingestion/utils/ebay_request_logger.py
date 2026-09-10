@@ -20,7 +20,7 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 
-from utils.logger import get_logger
+from ingestion.utils.logger import get_logger
 
 
 logger = get_logger(__name__)

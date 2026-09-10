@@ -12,13 +12,13 @@ import pandas as pd
 from deltalake import DeltaTable
 from dlt.sources.rest_api import rest_api_source
 
-from utils.gcp_auth import get_gcp_credentials_path
-from utils.config_loader import load_config
-from utils.ebay_request_logger import EbayRequestLoggingSession
-from utils.project_paths import API_CONFIG_FILE, PROJECT_ROOT
-from utils.logger import get_logger
+from ingestion.utils.gcp_auth import get_gcp_credentials_path
+from ingestion.utils.config_loader import load_config
+from ingestion.utils.ebay_request_logger import EbayRequestLoggingSession
+from ingestion.utils.project_paths import API_CONFIG_FILE, PROJECT_ROOT
+from ingestion.utils.logger import get_logger
 
-from sources.ebay_auth import EbayAuth
+from ingestion.sources.ebay_auth import EbayAuth
 
 
 # ============================================================================

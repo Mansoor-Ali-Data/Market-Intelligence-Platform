@@ -14,7 +14,7 @@ The data extraction engine for the **Market Intelligence Platform**, powered by 
   <img src="https://img.shields.io/badge/Package_Manager-uv-DE5FE9?style=for-the-badge&logo=astral&logoColor=white" alt="uv" />
 </p>
 
-[Key Features](#-key-architectural-pillars) • [Architecture & Data Flow](#-architecture--data-flow) • [Component Deep Dive](#-component-deep-dive) • [Parallelism Benchmarks](#-parallel-extraction-benchmarks) • [Project Structure](#-project-directory-structure) • [Configuration Guide](#-configuration-guide) • [Setup & Execution](#-getting-started--execution)
+[Key Features](#-key-architectural-pillars) • [Architecture & Data Flow](#-architecture--data-flow) • [Component Deep Dive](#-component-deep-dive) • [Parallelism Benchmarks](#-parallel-extraction-benchmarks) • [Project Structure](#-project-directory-structure) • [Configuration Guide](#-configuration-guide) • [Documentation](#-documentation) • [Setup & Execution](#-getting-started--execution)
 
 ---
 
@@ -129,29 +129,70 @@ The data extraction engine for the **Market Intelligence Platform**, powered by 
 ```text
 ingestion-dlt/
 ├── config/
-│   ├── api_config.yml          # Endpoint definitions, default params, auth URLs, & DLT configs
-│   └── categories.yml          # Business domains, query taxonomy, & priority enablement toggles
-├── pipelines/
-│   └── ebay_pipeline.py        # DLT pipeline creation, destination setup, & lifecycle orchestration
-├── sources/
-│   ├── ebay_auth.py            # Thread-safe OAuth 2.0 client credentials authenticator with token caching
-│   └── ebay_source.py          # Declarative DLT REST API source & parent-child resource definitions
-├── utils/
-│   ├── config_loader.py        # YAML configuration loader and category filtering helpers
-│   ├── data_window.py          # UTC daily extraction window generator
-│   ├── ebay_request_logger.py  # Custom requests.Session with latency, record counting & telemetry
-│   ├── logger.py               # Standardized application-wide logging factory
-│   └── project_paths.py        # Deterministic Pathlib project path constants
-├── .env                        # Local credentials & secrets (ignored by Git)
-├── .gitignore                  # Exclusion rules for secrets, caches, locks, & raw data
-├── pyproject.toml              # Project dependencies, packaging, & Python version constraints
-├── uv.lock                     # Deterministic dependency lockfile
-├── .python-version             # Python version pin (>=3.12)
-├── README.md                   # Ingestion layer documentation
-└── run_pipeline.py             # CLI execution entrypoint with date arguments
+│   ├── api_config.yml                  # API endpoints, pagination, auth, discovery & enrichment limits
+│   └── categories.yml                  # Business domains, queries & enablement metadata
+├── docs/
+│   └── discovery-and-incremental-enrichment.md
+│                                        # Detailed discovery manifest & enrichment state design
+├── src/
+│   └── ingestion/
+│       ├── pipelines/
+│       │   ├── ebay_pipeline.py         # Discovery DLT pipeline orchestration
+│       │   ├── ebay_enrichment_pipeline.py
+│       │   │                              # Item enrichment orchestration & state update flow
+│       │   └── build_discovered_items.py
+│       │                                  # Builds/updates the discovery manifest
+│       ├── sources/
+│       │   ├── ebay_auth.py             # Thread-safe OAuth 2.0 authenticator
+│       │   ├── ebay_source.py           # eBay Browse discovery REST API source
+│       │   └── ebay_enrichment_source.py # Pending-item enrichment REST API source
+│       └── utils/
+│           ├── config_loader.py          # YAML configuration loading & metadata helpers
+│           ├── data_window.py            # UTC daily extraction window generation
+│           ├── discovered_items_reader.py
+│           │                              # Reads discovery data for manifest construction
+│           ├── discovered_items_state.py
+│           │                              # Delta MERGE state updates for enrichment
+│           ├── ebay_request_logger.py    # Request latency, status & record telemetry
+│           ├── item_details_reader.py    # Load-ID-scoped Raw item-detail reader
+│           ├── logger.py                 # Application-wide logging factory
+│           └── project_paths.py          # Deterministic project path constants
+├── tests/
+│   ├── output/                           # Test output artifacts
+│   ├── test_ebay_get_items.py
+│   └── test_ebay_item_api.py
+├── .dlt/                                 # dlt runtime state & configuration
+├── .env                                  # Local credentials & secrets (ignored by Git)
+├── .gitignore                            # Git exclusions
+├── pyproject.toml                         # Dependencies, packaging & Python constraints
+├── uv.lock                                # Deterministic dependency lockfile
+├── .python-version                        # Python version pin
+├── README.md                              # Ingestion layer documentation
+└── run_pipeline.py                        # Thin CLI launcher
 ```
 
 ---
+
+---
+
+## 📚 Documentation
+
+The README provides the high-level architecture and implementation overview. For the detailed design of discovery, incremental enrichment, and enrichment state management, see:
+
+**[`docs/discovery-and-incremental-enrichment.md`](docs/discovery-and-incremental-enrichment.md)**
+
+The detailed document covers:
+
+- `discovered_items` as the enrichment control-plane manifest
+- Separation of discovery and enrichment workloads
+- DLT `load_id`-aware processing of successfully landed item details
+- Identification of successfully enriched `item_id` values
+- Delta `MERGE`-based enrichment state management
+- Idempotency and failure handling
+- Responsibilities between DLT ingestion and downstream processing
+- Current implementation status and design decisions
+
+This separation keeps the README focused on the system overview while preserving the deeper architectural reasoning in the dedicated design documentation.
 
 ## ⚙️ Configuration Guide
 

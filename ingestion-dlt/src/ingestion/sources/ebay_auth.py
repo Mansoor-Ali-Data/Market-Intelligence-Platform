@@ -22,7 +22,7 @@ from dlt.common.configuration.specs import configspec
 from dlt.sources.helpers.rest_client.auth import AuthConfigBase
 from dlt.common.typing import TSecretValue
 
-from utils.logger import get_logger
+from ingestion.utils.logger import get_logger
 
 
 # --------------------------------------------------
