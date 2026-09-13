@@ -20,6 +20,7 @@ from ingestion.sources.ebay_source import ebay_source
 
 from ingestion.utils.config_loader import load_config
 
+
 from ingestion.utils.project_paths import (
     PROJECT_ROOT,
     API_CONFIG_FILE,
