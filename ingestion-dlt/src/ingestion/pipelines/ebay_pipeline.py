@@ -3,6 +3,8 @@ DLTHub pipeline for eBay Browse Search ingestion.
 
 Responsibilities
 ----------------
+- Parse discovery pipeline command-line arguments.
+- Resolve the extraction date.
 - Create the DLT pipeline.
 - Execute the eBay source.
 - Log pipeline execution lifecycle.
@@ -13,19 +15,18 @@ Responsibilities
 # Required Libraries
 # --------------------------------------------------
 
+import argparse
+from datetime import date, datetime, timedelta, timezone
+
 import dlt
 from dotenv import load_dotenv
-from datetime import date
+
 from ingestion.sources.ebay_source import ebay_source
-
 from ingestion.utils.config_loader import load_config
-
-
 from ingestion.utils.project_paths import (
     PROJECT_ROOT,
     API_CONFIG_FILE,
 )
-
 from ingestion.utils.logger import get_logger
 
 
@@ -48,7 +49,6 @@ load_dotenv(PROJECT_ROOT / ".env")
 # --------------------------------------------------
 
 api_config = load_config(API_CONFIG_FILE)
-
 pipeline_config = api_config["pipeline"]
 
 logger.info(
@@ -56,6 +56,52 @@ logger.info(
     pipeline_config["pipeline_name"],
     pipeline_config["dataset_name"],
 )
+
+
+# --------------------------------------------------
+# Argument Parsing
+# --------------------------------------------------
+
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for the discovery pipeline."""
+
+    parser = argparse.ArgumentParser(
+        description="Run eBay daily ingestion."
+    )
+
+    parser.add_argument(
+        "--date",
+        dest="extraction_date",
+        type=str,
+        help="UTC extraction date in YYYY-MM-DD format.",
+    )
+
+    return parser.parse_args()
+
+
+# --------------------------------------------------
+# Extraction Date
+# --------------------------------------------------
+
+def resolve_extraction_date(
+    extraction_date: str | None,
+) -> date:
+    """
+    Resolve the extraction date for the discovery run.
+
+    If no date is supplied, the previous UTC day is used.
+    """
+
+    if extraction_date:
+        return datetime.strptime(
+            extraction_date,
+            "%Y-%m-%d",
+        ).date()
+
+    return (
+        datetime.now(timezone.utc).date()
+        - timedelta(days=1)
+    )
 
 
 # --------------------------------------------------
@@ -73,16 +119,15 @@ def run_pipeline(extraction_date: date):
     """
 
     logger.info(
-        "Starting eBay ingestion pipeline | pipeline=%s",
+        "Starting eBay ingestion pipeline | "
+        "pipeline=%s | extraction_date=%s",
         pipeline_config["pipeline_name"],
+        extraction_date,
     )
 
-    # ------------------------------------------
-    # Create DLT Pipeline
-    # ------------------------------------------
-
     logger.info(
-        "Creating DLT pipeline | destination=filesystem | dataset=%s",
+        "Creating DLT pipeline | "
+        "destination=filesystem | dataset=%s",
         pipeline_config["dataset_name"],
     )
 
@@ -96,31 +141,20 @@ def run_pipeline(extraction_date: date):
         "DLT pipeline created successfully"
     )
 
-    # ------------------------------------------
-    # Execute eBay Source
-    # ------------------------------------------
-
     logger.info(
         "Starting eBay source extraction"
     )
 
     try:
-
         load_info = pipeline.run(
             ebay_source(extraction_date)
         )
 
     except Exception:
-
         logger.exception(
             "eBay ingestion pipeline failed"
         )
-
         raise
-
-    # ------------------------------------------
-    # Pipeline Completion
-    # ------------------------------------------
 
     logger.info(
         "eBay ingestion pipeline completed successfully"
@@ -132,3 +166,28 @@ def run_pipeline(extraction_date: date):
     )
 
     return load_info
+
+
+# --------------------------------------------------
+# Pipeline Entry Point
+# --------------------------------------------------
+
+def main() -> None:
+    """Run the eBay Browse Search discovery pipeline."""
+
+    args = parse_args()
+
+    extraction_date = resolve_extraction_date(
+        args.extraction_date
+    )
+
+    logger.info(
+        "Running eBay ingestion | extraction_date=%s",
+        extraction_date,
+    )
+
+    run_pipeline(extraction_date)
+
+
+if __name__ == "__main__":
+    main()
