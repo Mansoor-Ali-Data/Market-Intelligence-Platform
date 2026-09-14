@@ -31,7 +31,7 @@ from ingestion.sources.ebay_source import (
     ebay_source,
     log_request_summary,
 )
-
+from time import perf_counter
 
 # --------------------------------------------------
 # Logger
@@ -120,6 +120,7 @@ def run_pipeline(extraction_date: date) -> dlt.common.pipeline.LoadInfo:
     dlt.common.pipeline.LoadInfo
         Information about the completed DLT load.
     """
+    pipeline_start = perf_counter()
 
     logger.info(
         "Starting eBay ingestion pipeline | "
@@ -158,7 +159,14 @@ def run_pipeline(extraction_date: date) -> dlt.common.pipeline.LoadInfo:
         )
         raise
     finally:
+        pipeline_duration = perf_counter() - pipeline_start
+
         log_request_summary()
+
+        logger.info(
+            "Total pipeline duration : %.2fs",
+            pipeline_duration,
+        )
 
     logger.info(
         "eBay ingestion pipeline completed successfully"
