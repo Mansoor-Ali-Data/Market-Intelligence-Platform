@@ -124,13 +124,6 @@ class EbayAuth(AuthConfigBase):
                 response.status_code,
             )
 
-            # Log the response body because it contains useful
-            # information for diagnosing OAuth configuration issues.
-            logger.error(
-                "eBay OAuth response: %s",
-                response.text,
-            )
-
             raise
 
         except requests.RequestException:
