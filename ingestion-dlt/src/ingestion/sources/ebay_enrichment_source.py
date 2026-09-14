@@ -33,6 +33,25 @@ DISCOVERED_ITEMS_PATH = (
 
 logger = get_logger(__name__)
 
+# ============================================================
+# Request Logging Session
+# ============================================================
+
+_request_session: EbayRequestLoggingSession | None = None
+
+
+def log_request_summary() -> None:
+    """
+    Log the request statistics collected during the enrichment run.
+    """
+    if _request_session is None:
+        logger.warning(
+            "No eBay enrichment request session was initialized."
+        )
+        return
+
+    _request_session.stats.log_summary()
+
 
 # ============================================================================
 # Read pending items
@@ -182,7 +201,9 @@ def ebay_enrichment_source(
     # Request logging session
     # ------------------------------------------------------------------------
 
-    session = EbayRequestLoggingSession()
+    global _request_session
+
+    _request_session = EbayRequestLoggingSession()
 
     # ------------------------------------------------------------------------
     # dlt REST API client
@@ -191,7 +212,7 @@ def ebay_enrichment_source(
     client_config = {
         "base_url": api["base_url"],
         "auth": oauth,
-        "session": session,
+        "session": _request_session,
     }
 
     # ------------------------------------------------------------------------
