@@ -108,7 +108,7 @@ def resolve_extraction_date(
 # Create and Run DLT Pipeline
 # --------------------------------------------------
 
-def run_pipeline(extraction_date: date):
+def run_pipeline(extraction_date: date) -> dlt.common.pipeline.LoadInfo:
     """
     Create and execute the eBay DLT pipeline.
 
