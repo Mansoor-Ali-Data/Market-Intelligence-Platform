@@ -9,17 +9,23 @@ Responsibilities
 - Identify the load IDs produced by the run.
 - Read successfully landed item IDs for those loads.
 - Update discovered_items enrichment state.
-
+- Log pipeline execution metrics and lifecycle events.
 """
+
+from time import perf_counter
 
 import dlt
 
-from ingestion.sources.ebay_enrichment_source import ebay_enrichment_source
+from ingestion.sources.ebay_enrichment_source import (
+    ebay_enrichment_source,
+    log_request_summary,
+)
 from ingestion.utils.discovered_items_state import mark_items_as_enriched
 from ingestion.utils.item_details_reader import read_enriched_item_ids
 from ingestion.utils.logger import get_logger
 from ingestion.utils.config_loader import load_config
 from ingestion.utils.project_paths import API_CONFIG_FILE
+
 
 PIPELINE_NAME = "ebay_enrichment_ingestion"
 DATASET_NAME = "ebay"
@@ -28,6 +34,9 @@ logger = get_logger(__name__)
 
 
 def main(max_items: int | None = None) -> None:
+    """Run the eBay item enrichment pipeline."""
+
+    pipeline_start = perf_counter()
 
     api_config = load_config(API_CONFIG_FILE)
 
@@ -51,7 +60,6 @@ def main(max_items: int | None = None) -> None:
         effective_max_items,
     )
 
-
     pipeline = dlt.pipeline(
         pipeline_name=PIPELINE_NAME,
         destination="filesystem",
@@ -62,79 +70,100 @@ def main(max_items: int | None = None) -> None:
         "Starting eBay enrichment pipeline"
     )
 
-    # ---------------------------------------------------------
-    # 1. Run enrichment
-    # ---------------------------------------------------------
+    try:
+        # ---------------------------------------------------------
+        # 1. Run enrichment
+        # ---------------------------------------------------------
 
-    load_info = pipeline.run(
-        ebay_enrichment_source(
-            max_items=effective_max_items
+        load_info = pipeline.run(
+            ebay_enrichment_source(
+                max_items=effective_max_items
+            )
         )
-    )
 
-    # ---------------------------------------------------------
-    # 2. Fail safely if any dlt load job failed
-    # ---------------------------------------------------------
+        # ---------------------------------------------------------
+        # 2. Fail safely if any dlt load job failed
+        # ---------------------------------------------------------
 
-    load_info.raise_on_failed_jobs()
+        load_info.raise_on_failed_jobs()
 
-    # ---------------------------------------------------------
-    # 3. Get successfully loaded dlt load IDs
-    # ---------------------------------------------------------
+        # ---------------------------------------------------------
+        # 3. Get successfully loaded dlt load IDs
+        # ---------------------------------------------------------
 
-    load_ids = load_info.loads_ids
+        load_ids = load_info.loads_ids
 
-    logger.info(
-        "eBay enrichment load completed | "
-        "load_ids=%s",
-        load_ids,
-    )
-
-    if not load_ids:
         logger.info(
-            "No load packages were produced. "
-            "Nothing to update."
+            "eBay enrichment load completed | "
+            "load_ids=%s",
+            load_ids,
         )
-        return
 
-    # ---------------------------------------------------------
-    # 4. Read item IDs from ONLY these load packages
-    # ---------------------------------------------------------
+        if not load_ids:
+            logger.info(
+                "No load packages were produced. "
+                "Nothing to update."
+            )
+            return
 
-    enriched_item_ids = read_enriched_item_ids(
-        load_ids
-    )
+        # ---------------------------------------------------------
+        # 4. Read item IDs from ONLY these load packages
+        # ---------------------------------------------------------
 
-    logger.info(
-        "Successfully enriched item IDs identified | "
-        "count=%s",
-        len(enriched_item_ids),
-    )
+        enriched_item_ids = read_enriched_item_ids(
+            load_ids
+        )
 
-    if enriched_item_ids.empty:
         logger.info(
-            "No successfully enriched item IDs found. "
-            "Discovered item state will not be updated."
+            "Successfully enriched item IDs identified | "
+            "count=%s",
+            len(enriched_item_ids),
         )
-        return
 
-    # ---------------------------------------------------------
-    # 5. Update discovered_items
-    # ---------------------------------------------------------
+        if enriched_item_ids.empty:
+            logger.info(
+                "No successfully enriched item IDs found. "
+                "Discovered item state will not be updated."
+            )
+            return
 
-    mark_items_as_enriched(
-        enriched_item_ids
-    )
+        # ---------------------------------------------------------
+        # 5. Update discovered_items
+        # ---------------------------------------------------------
 
-    logger.info(
-        "discovered_items enrichment state updated | "
-        "count=%s",
-        len(enriched_item_ids),
-    )
+        mark_items_as_enriched(
+            enriched_item_ids
+        )
 
-    logger.info(
-        "eBay enrichment pipeline completed successfully"
-    )
+        logger.info(
+            "discovered_items enrichment state updated | "
+            "count=%s",
+            len(enriched_item_ids),
+        )
+
+        logger.info(
+            "eBay enrichment pipeline completed successfully"
+        )
+
+    except Exception:
+        logger.exception(
+            "eBay enrichment pipeline failed"
+        )
+        raise
+
+    finally:
+        # ---------------------------------------------------------
+        # 6. Observability
+        # ---------------------------------------------------------
+
+        pipeline_duration = perf_counter() - pipeline_start
+
+        log_request_summary()
+
+        logger.info(
+            "Total pipeline duration : %.2fs",
+            pipeline_duration,
+        )
 
 
 if __name__ == "__main__":
