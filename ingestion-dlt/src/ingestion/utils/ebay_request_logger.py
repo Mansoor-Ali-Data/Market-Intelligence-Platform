@@ -14,7 +14,8 @@ The session is intentionally observational. It does not implement
 authentication, retries, pagination, or request modification.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import threading
 from time import perf_counter
 from urllib.parse import parse_qs, urlparse
 
@@ -42,6 +43,12 @@ class EbayRequestStats:
     total_records: int = 0
     total_duration: float = 0.0
 
+    _lock: threading.Lock = field(
+        default_factory=threading.Lock,
+        init=False,
+        repr=False,
+    )
+
     # --------------------------------------------------------
     # Record Request
     # --------------------------------------------------------
@@ -55,14 +62,27 @@ class EbayRequestStats:
     ) -> None:
         """Record metrics for one completed HTTP request."""
 
-        self.total_requests += 1
-        self.total_duration += duration
-        self.total_records += record_count
+        with self._lock:
+            self.total_requests += 1
+            self.total_duration += duration
+            self.total_records += record_count
 
-        if 200 <= status_code < 300:
-            self.successful_requests += 1
-        else:
+            if 200 <= status_code < 300:
+                self.successful_requests += 1
+            else:
+                self.failed_requests += 1
+
+    def record_failed_request(
+        self,
+        *,
+        duration: float,
+    ) -> None:
+        """Record a request that failed before receiving an HTTP response."""
+
+        with self._lock:
+            self.total_requests += 1
             self.failed_requests += 1
+            self.total_duration += duration
 
     # --------------------------------------------------------
     # Average Duration
@@ -84,36 +104,39 @@ class EbayRequestStats:
     def log_summary(self) -> None:
         """Log aggregate request statistics."""
 
-        logger.info("=" * 60)
-        logger.info("eBay API Request Summary")
+        with self._lock:
+            total_requests = self.total_requests
+            successful_requests = self.successful_requests
+            failed_requests = self.failed_requests
+            total_records = self.total_records
+            average_duration = self.average_duration
+
         logger.info("=" * 60)
 
         logger.info(
             "Total requests      : %s",
-            self.total_requests,
+            total_requests,
         )
 
         logger.info(
             "Successful requests : %s",
-            self.successful_requests,
+            successful_requests,
         )
 
         logger.info(
             "Failed requests     : %s",
-            self.failed_requests,
+            failed_requests,
         )
 
         logger.info(
             "Total records       : %s",
-            self.total_records,
+            total_records,
         )
 
         logger.info(
             "Average duration    : %.2fs",
-            self.average_duration,
+            average_duration,
         )
-
-        logger.info("=" * 60)
 
 
 # ============================================================
@@ -200,16 +223,14 @@ class EbayRequestLoggingSession(requests.Session):
             # Request Log
             # ------------------------------------------------
 
-            logger.info(
+            logger.debug(
                 "eBay API request | "
-                "number=%s | "
                 "query=%s | "
                 "offset=%s | "
                 "limit=%s | "
                 "status=%s | "
                 "records=%s | "
                 "duration=%.2fs",
-                self.stats.total_requests,
                 query,
                 offset,
                 limit,
@@ -223,9 +244,9 @@ class EbayRequestLoggingSession(requests.Session):
         except Exception:
             duration = perf_counter() - request_start
 
-            self.stats.total_requests += 1
-            self.stats.failed_requests += 1
-            self.stats.total_duration += duration
+            self.stats.record_failed_request(
+                duration=duration,
+            )
 
             logger.exception(
                 "eBay API request failed | duration=%.2fs",
