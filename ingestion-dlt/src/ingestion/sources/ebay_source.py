@@ -206,15 +206,15 @@ def ebay_source(extraction_date: date):
     client_id = os.getenv("EBAY_CLIENT_ID")
     client_secret = os.getenv("EBAY_CLIENT_SECRET")
 
-    logger.info(
-        "eBay client ID: %s",
-        "loaded" if client_id else "missing",
-    )
+    if not client_id:
+        raise EnvironmentError(
+            "EBAY_CLIENT_ID is not configured."
+        )
 
-    logger.info(
-        "eBay client secret: %s",
-        "loaded" if client_secret else "missing",
-    )
+    if not client_secret:
+        raise EnvironmentError(
+            "EBAY_CLIENT_SECRET is not configured."
+        )
 
     oauth = EbayAuth(
         client_id=client_id,
