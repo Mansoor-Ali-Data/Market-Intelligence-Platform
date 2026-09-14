@@ -18,7 +18,8 @@ from ingestion.sources.ebay_enrichment_source import ebay_enrichment_source
 from ingestion.utils.discovered_items_state import mark_items_as_enriched
 from ingestion.utils.item_details_reader import read_enriched_item_ids
 from ingestion.utils.logger import get_logger
-
+from ingestion.utils.config_loader import load_config
+from ingestion.utils.project_paths import API_CONFIG_FILE
 
 PIPELINE_NAME = "ebay_enrichment_ingestion"
 DATASET_NAME = "ebay"
@@ -27,6 +28,29 @@ logger = get_logger(__name__)
 
 
 def main(max_items: int | None = None) -> None:
+
+    api_config = load_config(API_CONFIG_FILE)
+
+    request_budget = api_config["api"]["enrichment"][
+        "max_api_requests_per_run"
+    ]
+
+    if max_items is None:
+        effective_max_items = request_budget
+    else:
+        effective_max_items = min(
+            max_items,
+            request_budget,
+        )
+
+    logger.info(
+        "Enrichment run limits resolved | "
+        "requested=%s | configured_budget=%s | effective=%s",
+        max_items,
+        request_budget,
+        effective_max_items,
+    )
+
 
     pipeline = dlt.pipeline(
         pipeline_name=PIPELINE_NAME,
@@ -43,7 +67,9 @@ def main(max_items: int | None = None) -> None:
     # ---------------------------------------------------------
 
     load_info = pipeline.run(
-        ebay_enrichment_source(max_items=max_items)
+        ebay_enrichment_source(
+            max_items=effective_max_items
+        )
     )
 
     # ---------------------------------------------------------
