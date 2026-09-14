@@ -19,12 +19,12 @@ Responsibilities:
 import os
 
 from datetime import date
-from ingestion.utils.data_window import build_daily_window
 
 import dlt
 from dotenv import load_dotenv
 
 from dlt.sources.rest_api import rest_api_source
+from dlt.sources.helpers.rest_client.paginators import OffsetPaginator
 
 from ingestion.sources.ebay_auth import EbayAuth
 
@@ -35,7 +35,11 @@ from ingestion.utils.config_loader import (
     get_enabled_queries,
 )
 
-from ingestion.utils.ebay_request_logger import EbayRequestLoggingSession
+from ingestion.utils.data_window import build_daily_window
+
+from ingestion.utils.ebay_request_logger import (
+    EbayRequestLoggingSession,
+)
 
 from ingestion.utils.project_paths import (
     PROJECT_ROOT,
@@ -45,10 +49,30 @@ from ingestion.utils.project_paths import (
 
 from ingestion.utils.logger import get_logger
 
-from dlt.sources.helpers.rest_client.paginators import OffsetPaginator
-
 
 logger = get_logger(__name__)
+
+
+# ============================================================
+# Request Logging Session
+# ============================================================
+
+_request_session: EbayRequestLoggingSession | None = None
+
+
+def log_request_summary() -> None:
+    """
+    Log aggregate eBay API request statistics for the current run.
+    """
+
+    if _request_session is None:
+        logger.warning(
+            "eBay request statistics unavailable; "
+            "request session was not initialized."
+        )
+        return
+
+    _request_session.stats.log_summary()
 
 
 # ============================================================
@@ -89,7 +113,7 @@ def search_queries(categories_config: dict):
                     "query_id": query["id"],
                     "search": query["search"],
                 }
-                
+
                 records.append(record)
 
     logger.info(
@@ -128,6 +152,8 @@ def ebay_source(extraction_date: date):
     - Configure pagination.
     - Build the parent/dependent resource relationship.
     """
+
+    global _request_session
 
     logger.info("Building eBay Browse Search source")
 
@@ -234,12 +260,13 @@ def ebay_source(extraction_date: date):
     # --------------------------------------------------------
     # API Client
     # --------------------------------------------------------
-    session = EbayRequestLoggingSession()
-    
+
+    _request_session = EbayRequestLoggingSession()
+
     client_config = {
         "base_url": api["base_url"],
         "auth": oauth,
-        "session": session,
+        "session": _request_session,
     }
 
     logger.info(
@@ -280,13 +307,10 @@ def ebay_source(extraction_date: date):
     # --------------------------------------------------------
 
     resource_config = {
-
         "name": "browse_search",
         "parallelized": True,
         "endpoint": {
-
             "path": api["endpoint"],
-
             "method": api["method"],
 
             # Request parameters.
@@ -307,13 +331,11 @@ def ebay_source(extraction_date: date):
                     api["discovery"]["max_pages_per_query"]
                     * api["default_limit"]
                 ),
-                    total_path="total",
-                
+                total_path="total",
             ),
 
             # JSON field containing the API records.
             "data_selector": api["data_selector"],
-            
         },
     }
 
@@ -343,11 +365,9 @@ def ebay_source(extraction_date: date):
     # --------------------------------------------------------
 
     rest_api_config = {
-
         "client": client_config,
 
         "resources": [
-
             # Parent metadata resource.
             search_queries(categories_config),
 
@@ -375,5 +395,4 @@ def ebay_source(extraction_date: date):
 
     return rest_api_source(
         rest_api_config,
-        parallelized=True,
-        )
+    )
