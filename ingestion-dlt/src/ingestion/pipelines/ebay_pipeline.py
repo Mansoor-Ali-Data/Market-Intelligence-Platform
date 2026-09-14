@@ -21,13 +21,16 @@ from datetime import date, datetime, timedelta, timezone
 import dlt
 from dotenv import load_dotenv
 
-from ingestion.sources.ebay_source import ebay_source
 from ingestion.utils.config_loader import load_config
 from ingestion.utils.project_paths import (
     PROJECT_ROOT,
     API_CONFIG_FILE,
 )
 from ingestion.utils.logger import get_logger
+from ingestion.sources.ebay_source import (
+    ebay_source,
+    log_request_summary,
+)
 
 
 # --------------------------------------------------
@@ -149,12 +152,13 @@ def run_pipeline(extraction_date: date) -> dlt.common.pipeline.LoadInfo:
         load_info = pipeline.run(
             ebay_source(extraction_date)
         )
-
     except Exception:
         logger.exception(
             "eBay ingestion pipeline failed"
         )
         raise
+    finally:
+        log_request_summary()
 
     logger.info(
         "eBay ingestion pipeline completed successfully"
