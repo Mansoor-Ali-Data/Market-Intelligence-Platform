@@ -55,7 +55,7 @@ def main() -> None:
 
         logger.info(
             "discovered_items manifest build completed successfully | "
-            "item_ids_processed=%s",
+            "unique_item_ids=%s",
             len(item_ids),
         )
 
