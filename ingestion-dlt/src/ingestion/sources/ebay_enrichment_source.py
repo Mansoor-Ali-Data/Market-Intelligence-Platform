@@ -243,6 +243,12 @@ def ebay_enrichment_source(
             "path": item_details_path,
             "method": enrichment["method"],
             "data_selector": enrichment["data_selector"],
+            "response_actions": [
+                {
+                    "status_code": 404,
+                    "action": "ignore",
+                },
+            ],
         },
     }
 
