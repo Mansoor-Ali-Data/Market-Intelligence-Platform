@@ -1,25 +1,32 @@
 """
-Request-level logging and statistics for eBay Browse API ingestion.
+Request-level logging and statistics for eBay API ingestion.
 
 Responsibilities
 ----------------
-- Execute HTTP requests through requests.Session.
+- Observe HTTP requests executed through a dlt retry-enabled session.
 - Measure request duration.
 - Capture request parameters.
 - Count records returned by eBay.
 - Track aggregate request statistics.
 - Log request-level metrics.
 
-The session is intentionally observational. It does not implement
-authentication, retries, pagination, or request modification.
+The logger is intentionally observational. It does not implement:
+- authentication
+- retries
+- pagination
+- request modification
+
+Retry and backoff behavior remain owned by dlt.
 """
 
 from dataclasses import dataclass, field
-import threading
 from time import perf_counter
+import threading
 from urllib.parse import parse_qs, urlparse
 
-import requests
+from dlt.sources.helpers.rest_client.exceptions import (
+    IgnoreResponseException,
+)
 
 from ingestion.utils.logger import get_logger
 
@@ -39,6 +46,7 @@ class EbayRequestStats:
     total_requests: int = 0
     successful_requests: int = 0
     failed_requests: int = 0
+    skipped_requests: int = 0
 
     total_records: int = 0
     total_duration: float = 0.0
@@ -50,7 +58,31 @@ class EbayRequestStats:
     )
 
     # --------------------------------------------------------
-    # Record Request
+    # Skipped Request
+    # --------------------------------------------------------
+
+    def record_skipped_request(
+        self,
+        *,
+        duration: float,
+    ) -> None:
+        """
+        Record a request intentionally skipped by dlt.
+
+        Example:
+        - eBay item no longer exists
+        - eBay returns HTTP 404
+        - dlt response action converts the response
+          into IgnoreResponseException
+        """
+
+        with self._lock:
+            self.total_requests += 1
+            self.skipped_requests += 1
+            self.total_duration += duration
+
+    # --------------------------------------------------------
+    # Successful / Completed Request
     # --------------------------------------------------------
 
     def record_request(
@@ -60,7 +92,9 @@ class EbayRequestStats:
         record_count: int,
         duration: float,
     ) -> None:
-        """Record metrics for one completed HTTP request."""
+        """
+        Record metrics for a completed HTTP request.
+        """
 
         with self._lock:
             self.total_requests += 1
@@ -72,12 +106,18 @@ class EbayRequestStats:
             else:
                 self.failed_requests += 1
 
+    # --------------------------------------------------------
+    # Failed Request
+    # --------------------------------------------------------
+
     def record_failed_request(
         self,
         *,
         duration: float,
     ) -> None:
-        """Record a request that failed before receiving an HTTP response."""
+        """
+        Record a request that ultimately failed.
+        """
 
         with self._lock:
             self.total_requests += 1
@@ -90,7 +130,9 @@ class EbayRequestStats:
 
     @property
     def average_duration(self) -> float:
-        """Return average request duration in seconds."""
+        """
+        Return average request duration in seconds.
+        """
 
         if self.total_requests == 0:
             return 0.0
@@ -102,12 +144,15 @@ class EbayRequestStats:
     # --------------------------------------------------------
 
     def log_summary(self) -> None:
-        """Log aggregate request statistics."""
+        """
+        Log aggregate request statistics.
+        """
 
         with self._lock:
             total_requests = self.total_requests
             successful_requests = self.successful_requests
             failed_requests = self.failed_requests
+            skipped_requests = self.skipped_requests
             total_records = self.total_records
             average_duration = self.average_duration
 
@@ -129,6 +174,11 @@ class EbayRequestStats:
         )
 
         logger.info(
+            "Skipped requests    : %s",
+            skipped_requests,
+        )
+
+        logger.info(
             "Total records       : %s",
             total_records,
         )
@@ -144,18 +194,45 @@ class EbayRequestStats:
 # ============================================================
 
 
-class EbayRequestLoggingSession(requests.Session):
+class EbayRequestLoggingSession:
     """
-    requests.Session implementation that records eBay API metrics.
+    Observability wrapper around a dlt retry-enabled session.
 
-    The session deliberately does not modify requests. It only
-    observes completed HTTP requests and records metrics.
+    The supplied session remains responsible for:
+    - HTTP execution
+    - retry behavior
+    - exponential backoff
+    - Retry-After handling
+
+    This class only observes the request lifecycle and records
+    metrics.
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, session) -> None:
+        """
+        Initialize the logging wrapper.
 
+        Parameters
+        ----------
+        session:
+            A dlt retry-enabled requests session.
+        """
+
+        self.session = session
         self.stats = EbayRequestStats()
+
+        # Preserve the original dlt-wrapped send method.
+        #
+        # dlt's Client creates a session where:
+        #
+        #     session.send = retry.wraps(session.send)
+        #
+        # Capturing it here preserves that retry behavior.
+        self._original_send = session.send
+
+        # Replace the session's send method with our
+        # observational wrapper.
+        session.send = self.send
 
     # --------------------------------------------------------
     # Send
@@ -163,13 +240,14 @@ class EbayRequestLoggingSession(requests.Session):
 
     def send(self, request, **kwargs):
         """
-        Execute an HTTP request and record request-level metrics.
+        Execute an HTTP request through dlt's retry-enabled
+        send method and record request-level metrics.
         """
 
         request_start = perf_counter()
 
         try:
-            response = super().send(
+            response = self._original_send(
                 request,
                 **kwargs,
             )
@@ -180,7 +258,9 @@ class EbayRequestLoggingSession(requests.Session):
             # Parse Request URL
             # ------------------------------------------------
 
-            parsed_url = urlparse(request.url)
+            parsed_url = urlparse(
+                request.url,
+            )
 
             query_params = parse_qs(
                 parsed_url.query,
@@ -241,6 +321,29 @@ class EbayRequestLoggingSession(requests.Session):
 
             return response
 
+        # ----------------------------------------------------
+        # Intentionally ignored response
+        # ----------------------------------------------------
+
+        except IgnoreResponseException:
+            duration = perf_counter() - request_start
+
+            self.stats.record_skipped_request(
+                duration=duration,
+            )
+
+            logger.debug(
+                "eBay API response ignored by dlt "
+                "response action | duration=%.2fs",
+                duration,
+            )
+
+            raise
+
+        # ----------------------------------------------------
+        # Unrecoverable request failure
+        # ----------------------------------------------------
+
         except Exception:
             duration = perf_counter() - request_start
 
@@ -264,8 +367,11 @@ class EbayRequestLoggingSession(requests.Session):
         """
         Determine the number of logical records returned by eBay.
 
-        Browse Search returns a collection under ``itemSummaries``.
-        Item Details returns a single item object containing ``itemId``.
+        Browse Search returns a collection under
+        ``itemSummaries``.
+
+        Item Details returns a single item object containing
+        ``itemId``.
         """
 
         try:
