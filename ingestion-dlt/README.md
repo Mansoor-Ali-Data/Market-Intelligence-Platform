@@ -6,121 +6,471 @@
 
 The data extraction engine for the **Market Intelligence Platform**, powered by **DLTHub (`dlt`)** and the official **eBay Browse API**. Built with production-grade engineering principles including thread-safe OAuth 2.0 lifecycle management, deterministic time-window partitioning, parent-child resource graphs, and real-time request observability.
 
+The ingestion layer is responsible for discovering marketplace items, landing source data into Google Cloud Storage, maintaining the incremental enrichment control plane, and enriching discovered items through the eBay Item Details API. It is deliberately separated from the downstream PySpark / Databricks transformation layer.
+
 <p align="center">
   <img src="https://img.shields.io/badge/DLTHub-1.28+-FF6B6B?style=for-the-badge&logo=dlt&logoColor=white" alt="dlt" />
   <img src="https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.12+" />
   <img src="https://img.shields.io/badge/Google_Cloud_Storage-GCS-4285F4?style=for-the-badge&logo=googlecloudstorage&logoColor=white" alt="GCS" />
+  <img src="https://img.shields.io/badge/Delta_Lake-Manifest-00ADD8?style=for-the-badge&logo=delta&logoColor=white" alt="Delta Lake" />
   <img src="https://img.shields.io/badge/Auth-OAuth_2.0-232F3E?style=for-the-badge" alt="OAuth 2.0" />
   <img src="https://img.shields.io/badge/Package_Manager-uv-DE5FE9?style=for-the-badge&logo=astral&logoColor=white" alt="uv" />
 </p>
 
-[Key Features](#-key-architectural-pillars) • [Architecture & Data Flow](#-architecture--data-flow) • [Component Deep Dive](#-component-deep-dive) • [Parallelism Benchmarks](#-parallel-extraction-benchmarks) • [Project Structure](#-project-directory-structure) • [Configuration Guide](#-configuration-guide) • [Documentation](#-documentation) • [Setup & Execution](#-getting-started--execution)
+[Responsibilities](#-responsibilities) • [Architecture](#-architecture--data-flow) • [Discovery Pipeline](#-discovery-pipeline) • [Enrichment Pipeline](#-incremental-enrichment-pipeline) • [Validation](#-validation) • [GCS Layout](#-gcs-data-layout) • [Project Structure](#-project-directory-structure) • [Configuration](#-configuration-guide) • [Documentation](#-documentation) • [Setup & Execution](#-getting-started--execution) • [Design Principles](#-engineering-design-principles) • [Status](#-current-status)
 
 ---
 
 </div>
 
-## 🌟 Key Architectural Pillars
+## 📋 Responsibilities
 
-- 🧩 **Metadata-Driven Resource Graphs:** Parent-child dependency topology where search domains are dynamically resolved from `categories.yml` and injected into the child `browse_search` REST API resource.
-- 🔒 **Thread-Safe OAuth 2.0 Lifecycle:** Custom authenticator (`EbayAuth`) implementing Client Credentials flow, dynamic server-reported TTL handling (`expires_in`), thread-locked token caching, and proactive expiry buffers to prevent 401 boundary failures.
-- ⏱️ **Deterministic UTC Date-Windowing:** Daily slice generation (`[window_start..window_end]`) ensuring idempotent, gap-free, reproducible incremental extraction.
-- ⚡ **Parallel Extraction & Auto-Pagination:** Concurrent API request execution powered by DLT with metadata-governed `OffsetPaginator` (`limit=200`, `maximum_offset=10000`).
-- 📊 **Zero-Overhead Request Telemetry:** Custom non-invasive `requests.Session` hook capturing live request durations, status codes, query parameters, returned item counts, and aggregate run statistics.
-- 🎯 **Decoupled Taxonomy:** Ingestion search expressions are strictly isolated from eBay’s internal category hierarchies, allowing rapid search configuration changes without downstream schema impact.
+| Responsibility | Owner |
+| :--- | :--- |
+| API connectivity | DLTHub + ingestion source code |
+| OAuth authentication | `EbayAuth` |
+| Pagination | DLTHub |
+| Retries / backoff | DLTHub |
+| Parallel API extraction | DLTHub |
+| Raw loading | DLTHub → GCS |
+| Discovery configuration | YAML metadata |
+| Discovery manifest | Python + Delta Lake |
+| Incremental enrichment state | Delta Lake MERGE |
+| Bronze / Silver / Gold | Downstream PySpark / Databricks |
+| Business transformations | Downstream PySpark / Databricks |
+
+The ingestion layer produces **source-oriented Raw data** and the control metadata required to incrementally enrich it.
 
 ---
 
 ## 🏗️ Architecture & Data Flow
 
+Discovery and enrichment are intentionally separate ingestion workloads.
+
 ```text
- ┌──────────────────────────┐      ┌──────────────────────────┐
- │      api_config.yml      │      │      categories.yml      │
- │  (Endpoints, Pagination) │      │   (Domains, Keywords)    │
- └────────────┬─────────────┘      └────────────┬─────────────┘
-              │                                 │
-              └───────────────┬─────────────────┘
-                              ▼
-        ┌─────────────────────────────────────────────┐
-        │        sources/ebay_source.py               │
-        │                                             │
-        │  ┌──────────────────────────────────────┐   │
-        │  │ Parent Resource: search_queries      │   │
-        │  │ (Filters & yields enabled keywords)  │   │
-        │  └──────────────────┬───────────────────┘   │
-        │                     │  {resources.          │
-        │                     │   search_queries.     │
-        │                     ▼   search}             │
-        │  ┌──────────────────────────────────────┐   │
-        │  │ Dependent Resource: browse_search    │   │
-        │  │ • Daily Window: [start..end]         │   │
-        │  │ • OffsetPaginator (limit=200)        │   │
-        │  └──────────────────┬───────────────────┘   │
-        └─────────────────────┼───────────────────────┘
-                              │
-                              ▼
-        ┌─────────────────────────────────────────────┐
-        │       EbayRequestLoggingSession             │
-        │       + Thread-Safe EbayAuth                │
-        │   (OAuth 2.0 Token Refresh + Telemetry)     │
-        └─────────────────────┬───────────────────────┘
-                              │
-                              ▼  GET /buy/browse/v1/item_summary/search
-        ┌─────────────────────────────────────────────┐
-        │              Official eBay API              │
-        └─────────────────────┬───────────────────────┘
-                              │  JSON Payload (itemSummaries)
-                              ▼
-        ┌─────────────────────────────────────────────┐
-        │               DLTHub Pipeline               │
-        │          (Destination: Filesystem / GCS)    │
-        └─────────────────────────────────────────────┘
+                         ┌─────────────────────┐
+                         │   categories.yml    │
+                         │ Search Scope/Queries │
+                         └──────────┬──────────┘
+                                    │
+                                    ▼
+                         ┌─────────────────────┐
+                         │  Browse Discovery   │
+                         │    DLT Pipeline     │
+                         └──────────┬──────────┘
+                                    │
+                                    ▼
+                         ┌─────────────────────┐
+                         │     eBay Browse     │
+                         │     Search API      │
+                         └──────────┬──────────┘
+                                    │
+                                    ▼
+                    ┌──────────────────────────────┐
+                    │        GCS Raw Storage       │
+                    │       browse_search          │
+                    └──────────────┬───────────────┘
+                                   │
+                                   ▼
+                    ┌──────────────────────────────┐
+                    │   discovered_items Delta     │
+                    │          Manifest            │
+                    │                              │
+                    │ item_id | is_enriched | ...  │
+                    └──────────────┬───────────────┘
+                                   │
+                         is_enriched = false
+                                   │
+                                   ▼
+                    ┌──────────────────────────────┐
+                    │   Pending Item Selection     │
+                    └──────────────┬───────────────┘
+                                   │
+                                   ▼
+                    ┌──────────────────────────────┐
+                    │   Item Details Enrichment    │
+                    │        DLT Pipeline          │
+                    └──────────────┬───────────────┘
+                                   │
+                                   ▼
+                         ┌───────────────────┐
+                         │ eBay Item Details │
+                         │       API         │
+                         └─────────┬─────────┘
+                                   │
+                                   ▼
+                    ┌──────────────────────────────┐
+                    │        GCS Raw Storage       │
+                    │        item_details          │
+                    └──────────────┬───────────────┘
+                                   │
+                                   ▼
+                    ┌──────────────────────────────┐
+                    │ Successfully Enriched IDs    │
+                    └──────────────┬───────────────┘
+                                   │
+                                   ▼
+                    ┌──────────────────────────────┐
+                    │      Delta MERGE State       │
+                    │      is_enriched = true      │
+                    └──────────────────────────────┘
 ```
+
+### Why Discovery & Enrichment Are Separate
+
+Discovery determines which products exist in the configured search space. Enrichment retrieves detailed information for products already discovered.
+
+Separating the workloads provides:
+
+- 🎯 Independent API budgets
+- ⏱️ Independent execution schedules
+- 🔄 Incremental enrichment
+- 🛡️ Clear failure boundaries
+- 📊 Simpler observability
+- 💰 Controlled API consumption
+- ♻️ No need to rediscover products simply to enrich them
 
 ---
 
-## 🔍 Component Deep Dive
+## 🔍 Discovery Pipeline
 
-### 1. Ingestion CLI & Runner (`run_pipeline.py`)
-- Central entrypoint for scheduled or ad-hoc ingestion jobs.
-- Implements CLI argument parsing via `argparse` with the `--date YYYY-MM-DD` flag.
-- **Smart Defaulting:** Automatically defaults to $T-1$ (previous UTC calendar day) for headless daily orchestrations (e.g., Airflow, Prefect, Cron).
+**Implementation:** `src/ingestion/pipelines/ebay_pipeline.py`
+**API Endpoint:** `GET /buy/browse/v1/item_summary/search`
 
-### 2. Pipeline Orchestrator (`pipelines/ebay_pipeline.py`)
-- Coordinates the DLT execution lifecycle.
-- Initializes `dlt.pipeline(pipeline_name="ebay_browse_ingestion", destination="filesystem", dataset_name="ebay")`.
-- Dispatches execution to `ebay_source(extraction_date)` and logs detailed `LoadInfo` metadata upon completion.
+### Discovery Flow
 
-### 3. Declarative Source & Resource Graph (`sources/ebay_source.py`)
-- Builds the `rest_api_source` leveraging DLT's verified REST client.
-- **Parent Resource (`search_queries`):** Scans `categories.yml` for active domains, subcategories, and search queries, yielding structured parameter dictionaries.
-- **Dependent Resource (`browse_search`):** Dynamically consumes `{resources.search_queries.search}`, injects the ISO-8601 UTC time range filter, and attaches the `OffsetPaginator`.
-- Configured with `parallelized=True` to maximize extraction throughput across independent query partitions.
+```text
+categories.yml
+      │
+      ▼
+Enabled category / subcategory / query metadata
+      │
+      ▼
+search_queries resource
+      │
+      ▼
+browse_search resource
+      │
+      ├── UTC extraction window
+      ├── limit = 200
+      └── offset pagination
+      │
+      ▼
+eBay Browse Search API
+      │
+      ▼
+DLTHub Raw loading
+      │
+      ▼
+gs://market-intelligence-raw/ebay/browse_search/
+```
 
-### 4. Custom Thread-Safe Authenticator (`sources/ebay_auth.py`)
-- Inherits from `AuthConfigBase` using `@configspec` for seamless DLT configuration injection.
-- **Client Credentials Flow:** Requests scoped Bearer tokens from eBay’s identity endpoint using Basic Auth encoding (`EBAY_CLIENT_ID:EBAY_CLIENT_SECRET`).
-- **Concurrency Safety:** Uses a `threading.Lock()` to prevent race conditions during token refresh across worker threads.
-- **Proactive Expiry Buffer:** Evaluates token expiration with a 60-second safety window (`token_expiry_buffer`), eliminating in-flight token expiry 401 exceptions.
-- Injects standard headers: `Authorization: Bearer <token>` and `X-EBAY-C-MARKETPLACE-ID: EBAY_US`.
+### Discovery Configuration
 
-### 5. Request Telemetry & Observability (`utils/ebay_request_logger.py`)
-- Implements `EbayRequestLoggingSession(requests.Session)` to monitor HTTP traffic non-invasively.
-- Measures high-resolution request duration using `time.perf_counter()`.
-- Captures query parameters (`q`, `offset`, `limit`), response status codes, and parses item count from `itemSummaries`.
-- Summarizes runtime health via `EbayRequestStats` (total requests, success/fail counts, total records extracted, average latency).
+The discovery configuration uses:
 
-### 6. Deterministic Time Windowing (`utils/data_window.py`)
-- Produces immutable `ExtractionWindow` instances containing ISO-8601 UTC bounds:
-  $$\text{start} = \text{YYYY-MM-DD 00:00:00Z}, \quad \text{end} = \text{YYYY-MM-(DD+1) 00:00:00Z}$$
-- Guarantees exact 24-hour non-overlapping windows across all search queries.
+- 🏪 Marketplace: `EBAY_US`
+- ✅ Condition: `NEW`
+- 🏢 Seller account type: `BUSINESS`
+- 🔎 Configured search expressions from `categories.yml`
+- ⏱️ Deterministic UTC extraction windows
+- 📄 Maximum page size: `200`
+- 🚦 Controlled discovery request budget
 
-### 7. Configuration Engine (`utils/config_loader.py` & `utils/project_paths.py`)
-- Robust YAML parsing and validation with type-safe metadata selectors:
-  - `get_enabled_categories()`
-  - `get_enabled_subcategories()`
-  - `get_enabled_queries()`
-- Centralizes deterministic project paths with `pathlib.Path` anchors.
+The search scope is controlled through `config/categories.yml` rather than hard-coded into the API implementation.
+
+### Discovery Budget
+
+```yaml
+discovery:
+  max_api_requests: 1000
+  max_pages_per_query: 18
+```
+
+These limits deliberately constrain discovery consumption so that the remaining API budget can be used for item-level enrichment.
+
+---
+
+## ⏱️ Deterministic Discovery Windows
+
+Discovery uses a UTC daily extraction window:
+
+$$\text{start} = \text{YYYY-MM-DD 00:00:00Z}, \quad \text{end} = \text{YYYY-MM-(DD+1) 00:00:00Z}$$
+
+The window is injected into the eBay `itemStartDate` filter.
+
+This provides:
+
+- ✅ Deterministic extraction boundaries
+- 🔄 Reproducible historical runs
+- 📊 Non-overlapping daily slices
+- 🛡️ Explicit operational recovery points
+
+**Implementation:** `src/ingestion/utils/data_window.py`
+
+When no date is supplied, the discovery CLI resolves the previous UTC calendar day.
+
+---
+
+## 📦 Discovery Manifest
+
+Repeated discovery runs can encounter the same `item_id` through overlapping queries, pagination, or repeated extraction runs. The ingestion layer therefore builds a Delta manifest:
+
+`gs://market-intelligence-curated/ebay/discovered_items`
+
+The manifest acts as the **enrichment control plane**. Its schema:
+
+| Column | Type | Purpose |
+| :--- | :--- | :--- |
+| `item_id` | `STRING` | eBay item business key (logical primary/merge key) |
+| `is_enriched` | `BOOLEAN` | Indicates whether successful enrichment has occurred |
+| `last_enriched_at` | `TIMESTAMP` | Timestamp of the most recent successful enrichment |
+
+Its purpose is to answer:
+
+> ❓ **Which discovered items still require detailed enrichment?**
+
+**Implementation:** `src/ingestion/pipelines/build_discovered_items.py`
+
+The manifest does not replace the Raw discovery data. `discovered_items` is not a business/analytical dataset — it is an **ingestion control-plane dataset**.
+
+---
+
+## 🔄 Incremental Enrichment Pipeline
+
+**Implementation:** `src/ingestion/pipelines/ebay_enrichment_pipeline.py`
+**API Endpoint:** `GET /buy/browse/v1/item/{item_id}`
+
+The pipeline selects pending records where `is_enriched = false`.
+
+### Enrichment Flow
+
+```text
+discovered_items
+      │
+      ▼
+pending item IDs
+      │
+      ▼
+DLTHub REST resource
+      │
+      ▼
+eBay Item Details API
+      │
+      ├── 200 → Raw item_details
+      │
+      └── 404 → item-level skip
+      │
+      ▼
+Successfully landed item IDs
+      │
+      ▼
+Delta MERGE
+      │
+      ▼
+is_enriched = true
+```
+
+A product is marked enriched **only** when its Item Details response has successfully landed in Raw. This prevents failed or unavailable items from being incorrectly marked as complete.
+
+### Enrichment Budget
+
+```yaml
+enrichment:
+  max_api_requests_per_run: 5000
+```
+
+Smaller values may be used temporarily for controlled development tests.
+
+---
+
+## 🚫 Item-Level 404 Handling
+
+A product discovered earlier may no longer be available when enrichment occurs. The Item Details resource treats HTTP `404` as an item-level skip:
+
+```python
+"response_actions": [
+    {
+        "status_code": 404,
+        "action": "ignore",
+    },
+],
+```
+
+| HTTP Status | Behavior |
+| :---: | :--- |
+| `200` | Item loaded to Raw |
+| `404` | Item skipped (marketplace unavailable) |
+| Other failure | Handled by DLT retry/error behavior |
+
+A missing marketplace item does not terminate an otherwise valid enrichment batch.
+
+---
+
+## 🔒 Authentication
+
+**Implementation:** `src/ingestion/sources/ebay_auth.py`
+
+The implementation uses eBay OAuth 2.0 Client Credentials flow.
+
+| Feature | Detail |
+| :--- | :--- |
+| Grant type | Client Credentials |
+| Token lifetime | Dynamic using eBay's `expires_in` |
+| Thread safety | `threading.Lock()` for concurrent token refresh |
+| Expiry buffer | 60-second proactive safety window |
+| Marketplace header | `X-EBAY-C-MARKETPLACE-ID: EBAY_US` |
+| Credentials | Environment configuration (`.env`) |
+
+```env
+EBAY_CLIENT_ID="your-ebay-client-id"
+EBAY_CLIENT_SECRET="your-ebay-client-secret"
+```
+
+Secrets are **never** committed to Git.
+
+---
+
+## 📊 Reliability & Observability
+
+DLTHub owns HTTP retries and backoff. The ingestion layer does not introduce a second custom retry framework.
+
+The DLT HTTP client handles transient conditions including:
+
+- HTTP `429` (rate limiting)
+- HTTP `5xx` (server errors)
+- Connection failures
+- Timeout failures
+
+### Request Telemetry
+
+The custom request logger (`EbayRequestLoggingSession`) provides application-level request observability:
+
+| Metric | Description |
+| :--- | :--- |
+| Total requests | All API calls made |
+| Successful requests | HTTP 200 responses |
+| Failed requests | Non-recoverable failures |
+| Skipped requests | HTTP 404 (item unavailable) |
+| Total records | Records extracted |
+| Average duration | Mean request latency |
+
+**Sample Output:**
+
+```text
+============================================================
+Total requests      : 4000
+Successful requests : 3964
+Failed requests     : 0
+Skipped requests    : 36
+Total records       : 3964
+Average duration    : 0.94s
+============================================================
+```
+
+The logger is an observability component only — DLTHub remains responsible for request execution, retries, and Raw loading.
+
+---
+
+## ⚡ Parallel Extraction
+
+DLTHub manages extraction concurrency through:
+
+```toml
+[extract]
+execution_strategy = "round_robin"
+workers = 10
+```
+
+Concurrency settings are intentionally kept in `.dlt/config.toml` rather than `api_config.yml`.
+
+This preserves the separation between:
+
+| Configuration File | Responsibility |
+| :--- | :--- |
+| `api_config.yml` | API semantics |
+| `categories.yml` | Discovery metadata |
+| `.dlt/config.toml` | DLT runtime execution |
+
+The discovery parallelism was benchmarked independently before selecting the current runtime configuration.
+
+---
+
+## ✅ Validation
+
+The enrichment workflow has been validated progressively at increasing batch sizes:
+
+| Test | Requested | Successful | Skipped | Failed | State Updates | Result |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Canary** | 1 | 1 | 0 | 0 | 1 | ✅ PASS |
+| **Controlled** | 20 | 17 | 3 | 0 | 17 | ✅ PASS |
+| **Controlled** | 100 | 97 | 3 | 0 | 97 | ✅ PASS |
+| **Scale Test** | 4,000 | 3,964 | 36 | 0 | 3,964 | ✅ PASS |
+
+### 4,000-Item Validation
+
+```text
+Requested             : 4000
+Successful requests   : 3964
+Skipped requests      : 36
+Failed requests       : 0
+Raw records           : 3964
+Unique enriched IDs   : 3964
+State updates         : 3964
+Average API duration  : 0.94s
+Total pipeline time   : 507.73s
+```
+
+The critical processing invariant held:
+
+```text
+4000 requested
+    │
+    ├── 3964 successful
+    │       ├── 3964 Raw records
+    │       ├── 3964 unique IDs
+    │       └── 3964 state updates
+    │
+    └── 36 skipped
+```
+
+No failed requests were recorded during this scale validation.
+
+### Transient 429 Observation
+
+An isolated HTTP `429 Too Many Requests` was observed during an earlier controlled run. A later one-item run succeeded without code changes, followed by successful 20-, 100-, and 4,000-item runs. The current implementation therefore relies on DLTHub's existing retry/backoff behavior rather than introducing a separate application-level retry system.
+
+---
+
+## 🗄️ GCS Data Layout
+
+### Raw Bucket
+
+```text
+gs://market-intelligence-raw/
+└── ebay/
+    ├── browse_search/
+    ├── browse_search__categories/
+    ├── browse_search__buying_options/
+    ├── browse_search__shipping_options/
+    ├── item_details/
+    ├── item_details__shipping_options/
+    ├── pending_items/
+    ├── search_queries/
+    └── _dlt_*
+```
+
+DLTHub owns the source-oriented Raw layout and system metadata. Raw data is intentionally preserved close to the source representation. Analytical transformations are deferred to the downstream PySpark layer.
+
+### Curated / Control Bucket
+
+```text
+gs://market-intelligence-curated/
+└── ebay/
+    └── discovered_items/
+```
+
+The `discovered_items` Delta dataset is an ingestion control dataset used to manage incremental enrichment.
 
 ---
 
@@ -128,93 +478,101 @@ The data extraction engine for the **Market Intelligence Platform**, powered by 
 
 ```text
 ingestion-dlt/
+│
 ├── config/
 │   ├── api_config.yml                  # API endpoints, pagination, auth, discovery & enrichment limits
 │   └── categories.yml                  # Business domains, queries & enablement metadata
+│
 ├── docs/
 │   └── discovery-and-incremental-enrichment.md
 │                                        # Detailed discovery manifest & enrichment state design
+│
 ├── src/
 │   └── ingestion/
+│       ├── __init__.py
 │       ├── pipelines/
+│       │   ├── __init__.py
 │       │   ├── ebay_pipeline.py         # Discovery DLT pipeline orchestration
 │       │   ├── ebay_enrichment_pipeline.py
 │       │   │                              # Item enrichment orchestration & state update flow
 │       │   └── build_discovered_items.py
 │       │                                  # Builds/updates the discovery manifest
+│       │
 │       ├── sources/
+│       │   ├── __init__.py
 │       │   ├── ebay_auth.py             # Thread-safe OAuth 2.0 authenticator
 │       │   ├── ebay_source.py           # eBay Browse discovery REST API source
 │       │   └── ebay_enrichment_source.py # Pending-item enrichment REST API source
+│       │
 │       └── utils/
+│           ├── __init__.py
 │           ├── config_loader.py          # YAML configuration loading & metadata helpers
 │           ├── data_window.py            # UTC daily extraction window generation
 │           ├── discovered_items_reader.py
 │           │                              # Reads discovery data for manifest construction
 │           ├── discovered_items_state.py
 │           │                              # Delta MERGE state updates for enrichment
+│           ├── discovered_items_writer.py
+│           │                              # Writes discovered item IDs to Delta manifest
 │           ├── ebay_request_logger.py    # Request latency, status & record telemetry
+│           ├── gcp_auth.py               # GCP credential resolution
 │           ├── item_details_reader.py    # Load-ID-scoped Raw item-detail reader
 │           ├── logger.py                 # Application-wide logging factory
 │           └── project_paths.py          # Deterministic project path constants
+│
 ├── tests/
 │   ├── output/                           # Test output artifacts
 │   ├── test_ebay_get_items.py
 │   └── test_ebay_item_api.py
-├── .dlt/                                 # dlt runtime state & configuration
+│
+├── .dlt/
+│   └── config.toml                       # DLT runtime: workers, strategy, retries
+│
 ├── .env                                  # Local credentials & secrets (ignored by Git)
 ├── .gitignore                            # Git exclusions
+├── .python-version                        # Python version pin
 ├── pyproject.toml                         # Dependencies, packaging & Python constraints
 ├── uv.lock                                # Deterministic dependency lockfile
-├── .python-version                        # Python version pin
-├── README.md                              # Ingestion layer documentation
-└── run_pipeline.py                        # Thin CLI launcher
+└── README.md                              # Ingestion layer documentation
 ```
 
 ---
-
----
-
-## 📚 Documentation
-
-The README provides the high-level architecture and implementation overview. For the detailed design of discovery, incremental enrichment, and enrichment state management, see:
-
-**[`docs/discovery-and-incremental-enrichment.md`](docs/discovery-and-incremental-enrichment.md)**
-
-The detailed document covers:
-
-- `discovered_items` as the enrichment control-plane manifest
-- Separation of discovery and enrichment workloads
-- DLT `load_id`-aware processing of successfully landed item details
-- Identification of successfully enriched `item_id` values
-- Delta `MERGE`-based enrichment state management
-- Idempotency and failure handling
-- Responsibilities between DLT ingestion and downstream processing
-- Current implementation status and design decisions
-
-This separation keeps the README focused on the system overview while preserving the deeper architectural reasoning in the dedicated design documentation.
 
 ## ⚙️ Configuration Guide
 
 ### 1. API Configuration (`config/api_config.yml`)
-Governs low-level REST client and pipeline execution settings:
+
+Contains API-specific configuration for both discovery and enrichment:
 
 ```yaml
 api:
   base_url: "https://api.ebay.com"
+  marketplace_id: "EBAY_US"
   endpoint: "/buy/browse/v1/item_summary/search"
   method: "GET"
-  marketplace_id: "EBAY_US"
   default_limit: 200
   paginator: offset
   data_selector: itemSummaries
-  sort: "newlyListed"
+
+  discovery:
+    max_api_requests: 1000
+    max_pages_per_query: 18
+
   filter:
     item_start_date: "itemStartDate:[{window_start}..{window_end}]"
+    seller_account_type: "sellerAccountTypes:{{BUSINESS}}"
+    condition: "conditions:{{NEW}}"
+
+  enrichment:
+    endpoint: "/buy/browse/v1/item/{item_id}"
+    method: "GET"
+    data_selector: "$"
+    max_api_requests_per_run: 5000
 ```
 
 ### 2. Category & Search Taxonomy (`config/categories.yml`)
-Enables granular control over what marketplace data is extracted. To add or disable queries, simply modify the YAML:
+
+Controls the discovery search space. Metadata determines **what to search**, not **how the API is implemented**:
 
 ```yaml
 categories:
@@ -235,69 +593,49 @@ categories:
             search: "laptop"
 ```
 
----
+### 3. DLT Runtime (``.dlt/config.toml``)
 
-## 📊 Parallel Extraction Benchmarks
-
-DLT extraction concurrency was evaluated across both the **Search Discovery** (`/item_summary/search`) and **Item Enrichment** (`/item/{item_id}`) API stages to measure scaling efficiency and validate system resilience.
-
----
-
-### 1. Search API Parallelism Benchmark (`/item_summary/search`)
-
-DLT extraction concurrency was benchmarked across independent search query chains under identical workloads. The controlled test executed across **3 search queries** (`laptop`, `desktop`, `tablet`) with **50 paginated requests each**, totaling **150 Browse API requests** and ~30,000 records.
-
-| Metric | Workers = 1 (Baseline) | Workers = 3 | Workers = 6 |
-| :--- | :---: | :---: | :---: |
-| **API Requests** | 150 | 150 | 150 |
-| **Successful Requests** | 150 (100%) | 150 (100%) | 150 (100%) |
-| **Failed Requests** | 0 | 0 | 0 |
-| **Throttling Observed** | None | None | None |
-| **API Extraction Time** | ~132s | **~47s** | ~49s |
-| **Total Pipeline Runtime** | ~170s | **~81s** | ~86s |
-| **API Extraction Speedup** | 1.0× (Baseline) | **~2.8×** | ~2.7× |
-
-#### Findings
-- **Near-Linear Speedup (3 Workers):** Scaling to 3 workers reduced extraction time from **132s to 47s** (**~2.8× speedup**), with 1 worker dedicated per query chain.
-- **Worker Saturation (6 Workers):** Allocating 6 workers for 3 query chains produced identical runtime (~49s / 2.7×) because pagination within each chain is sequential, leaving extra workers idle once partitions were saturated.
-- **Resilience:** All 150 API requests completed successfully with zero throttling.
-
----
-
-### 2. Item Enrichment Parallelism Benchmark (`getItem`)
-
-To validate parallel performance for item-level enrichment, a controlled experiment evaluated sequential execution against concurrent DLT extraction across **20 individual item requests** using the eBay Browse Item API (`/buy/browse/v1/item/{item_id}`).
-
-| Configuration | Items | Workers | Total Runtime | Load Time | Success |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Sequential baseline** | 20 | 1 | 43.868s | 23.63s | 20/20 (100%) |
-| **Parallel** | 20 | 10 | **25.099s** | **11.20s** | 20/20 (100%) |
-
-**Observed total speedup: ~1.75×**
-
-#### Findings
-- **Concurrent Thread Execution:** The 10-worker run **actually demonstrated concurrent execution** distributed across 10 DLT extraction threads.
-- **Load Time & Runtime Reduction:** Total runtime dropped from **43.868s to 25.099s** (~1.75× speedup), and DLT load time was cut from **23.63s to 11.20s** (>2× speedup).
-- **Error-Free Execution:** All 20 `getItem` requests succeeded without errors or throttling.
-
-> **Validation Note:**  
-> For the enrichment experiment, 10 workers provided a validated improvement over the sequential baseline and successfully processed all 20 `getItem` requests without errors.
-
----
-
-### 3. Production Concurrency Strategy
-
-The production metadata contains **50+ independent search queries** and hundreds of item enrichment requests, significantly larger than the controlled benchmarks. Therefore, the ingestion layer is configured with:
+Controls DLT runtime behavior:
 
 ```toml
+[destination.filesystem]
+bucket_url = "gs://market-intelligence-raw"
+
 [extract]
 execution_strategy = "round_robin"
 workers = 10
+
+[runtime]
+request_max_attempts = 5
+request_backoff_factor = 1
+request_max_retry_delay = 300
 ```
 
-This is an **initial production concurrency ceiling**, not a claim that 10 workers is globally optimal. The setting remains independently configurable and will be tuned dynamically using production telemetry (extraction duration, API latency, retries, and throttling/rate-limit responses).
+---
 
-The benchmark and production configuration intentionally keep **query selection in metadata** and **execution concurrency in DLT configuration**, preserving the separation of responsibilities in the ingestion architecture.
+## 📚 Documentation
+
+The README provides the ingestion architecture and implementation overview. Detailed control-plane design is maintained separately:
+
+**[`docs/discovery-and-incremental-enrichment.md`](docs/discovery-and-incremental-enrichment.md)**
+
+The detailed document covers:
+
+- `discovered_items` as the enrichment control-plane manifest
+- Discovery deduplication
+- Separation of discovery and enrichment workloads
+- Pending-item selection
+- DLT `load_id`-aware processing of successfully landed item details
+- Successfully enriched ID detection
+- Delta `MERGE`-based enrichment state management
+- Idempotency and failure handling
+- Repeated discovery behavior
+- Next-run enrichment behavior
+- Design decisions and trade-offs
+
+Keeping the deeper control-plane mechanics in the dedicated document avoids duplicating implementation specifications in this README.
+
+---
 
 ## 🚀 Getting Started & Execution
 
@@ -305,6 +643,8 @@ The benchmark and production configuration intentionally keep **query selection 
 - **Python 3.12+**
 - **[uv](https://github.com/astral-sh/uv)** (recommended for fast, deterministic package management)
 - **eBay Developer Account** with Browse API access
+- **Google Cloud project** with access to the configured GCS buckets
+- Local GCP authentication configured for development
 
 ### 2. Environment Setup
 Create a `.env` file inside `ingestion-dlt/`:
@@ -313,57 +653,114 @@ Create a `.env` file inside `ingestion-dlt/`:
 # eBay Developer Credentials
 EBAY_CLIENT_ID="your-ebay-app-client-id"
 EBAY_CLIENT_SECRET="your-ebay-app-client-secret"
-
-# GCP Storage (When deploying to Cloud)
-DESTINATION__FILESYSTEM__BUCKET_URL="gs://your-raw-gcs-bucket-name"
-CREDENTIALS__PROJECT_ID="your-gcp-project-id"
-CREDENTIALS__CLIENT_EMAIL="your-sa@project.iam.gserviceaccount.com"
-CREDENTIALS__PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
 ```
+
+Do not commit `.env` or credentials to Git.
 
 ### 3. Install Dependencies
 ```bash
-# Sync dependencies using uv
 uv sync
 ```
 
-### 4. Running Ingestion
+### 4. Running the Pipelines
 
-#### Run for Previous UTC Day (Default $T-1$):
+#### Browse Search Discovery
+
+Default (previous UTC day):
 ```bash
-uv run run_pipeline.py
+uv run python -m ingestion.pipelines.ebay_pipeline
 ```
 
-#### Run for a Specific Historical Extraction Date:
+Specific extraction date:
 ```bash
-uv run run_pipeline.py --date 2026-08-20
+uv run python -m ingestion.pipelines.ebay_pipeline --date 2026-09-14
 ```
+
+#### Build / Update Discovery Manifest
+
+```bash
+uv run python -m ingestion.pipelines.build_discovered_items
+```
+
+This reads discovered Raw data, deduplicates item IDs, and creates or updates:
+
+`gs://market-intelligence-curated/ebay/discovered_items`
+
+#### Run Incremental Enrichment
+
+```bash
+uv run python -m ingestion.pipelines.ebay_enrichment_pipeline
+```
+
+The pipeline selects pending items where `is_enriched = false` and the configured enrichment request budget.
+
+For controlled development runs, temporarily reduce `max_api_requests_per_run` in `api_config.yml`, then execute the same command.
 
 ---
 
-## 📊 Sample Execution Log & Telemetry Output
+## 🧭 Engineering Design Principles
+
+| Principle | Description |
+| :--- | :--- |
+| **Separation of responsibilities** | DLTHub owns extraction infrastructure. Ingestion code owns source-specific orchestration and control state. PySpark owns downstream transformation and analytical modeling. |
+| **Metadata-driven discovery** | Search scope is controlled through YAML rather than hard-coded Python logic. |
+| **Discovery ≠ Enrichment** | Discovery identifies candidate products. Enrichment retrieves detailed information for those products. |
+| **State-driven processing** | The Delta manifest determines which products require processing. |
+| **Successful-output-based state updates** | An item is marked enriched only after its Item Details response has successfully landed in Raw. |
+| **Idempotent state management** | Delta MERGE is used to update enrichment state safely. |
+| **Controlled API consumption** | Discovery and enrichment have separate request budgets. |
+| **Reuse platform capabilities** | DLTHub handles retries, pagination, concurrency, and Raw loading rather than duplicating those mechanisms in application code. |
+| **Simple before complex** | The MVP avoids unnecessary infrastructure such as external queues or databases where the current GCS + Delta + DLT architecture provides the required control. |
+
+---
+
+## 📈 Current Status
+
+### Completed
+
+- [x] eBay Browse API integration
+- [x] eBay OAuth 2.0 authentication
+- [x] GCP / GCS integration
+- [x] Metadata-driven discovery configuration
+- [x] Browse Search discovery
+- [x] Deterministic UTC date windows
+- [x] Offset pagination
+- [x] Discovery request budgeting
+- [x] DLT parallel extraction
+- [x] Request observability
+- [x] Discovery Raw ingestion
+- [x] Discovery deduplication
+- [x] Delta discovery manifest
+- [x] Incremental pending-item selection
+- [x] Item Details enrichment
+- [x] Item-level 404 handling
+- [x] DLT retry / backoff
+- [x] Enrichment Raw ingestion
+- [x] Successfully enriched ID detection
+- [x] Delta MERGE state updates
+- [x] Enrichment validation through 4,000 requested items
+
+### Next Layer
+
+The completed ingestion layer feeds the downstream PySpark / Databricks transformation architecture:
 
 ```text
-2026-08-24 14:30:00 | INFO     | pipelines.ebay_pipeline | Loaded pipeline configuration | name=ebay_browse_ingestion | dataset=ebay
-2026-08-24 14:30:01 | INFO     | sources.ebay_source     | eBay extraction window | start=2026-08-23T00:00:00Z | end=2026-08-24T00:00:00Z
-2026-08-24 14:30:01 | INFO     | sources.ebay_auth       | Fetching new eBay OAuth token
-2026-08-24 14:30:02 | INFO     | sources.ebay_auth       | eBay OAuth token acquired successfully | expires_in=7200s
-2026-08-24 14:30:03 | INFO     | utils.ebay_request_logger | eBay Browse API request | number=1 | query=laptop | offset=0 | limit=200 | status=200 | records=200 | duration=0.68s
-2026-08-24 14:30:04 | INFO     | utils.ebay_request_logger | eBay Browse API request | number=2 | query=laptop | offset=200 | limit=200 | status=200 | records=184 | duration=0.54s
-============================================================
-eBay Browse API Request Summary
-============================================================
-Total requests      : 2
-Successful requests : 2
-Failed requests     : 0
-Total records       : 384
-Average duration    : 0.61s
-============================================================
-2026-08-24 14:30:06 | INFO     | pipelines.ebay_pipeline | eBay ingestion pipeline completed successfully
+GCS Raw
+   │
+   ▼
+Bronze
+   │
+   ▼
+Silver
+   │
+   ▼
+Gold
 ```
+
+The ingestion layer is the boundary between the external marketplace APIs and the platform's downstream data transformation and analytical layers.
 
 ---
 
 <div align="center">
-  <sub>Part of the <b>Market Intelligence Platform</b> • Ingestion Layer Powered by DLTHub</sub>
+  <sub>Part of the <b>Market Intelligence Platform</b> • API Ingestion Layer Powered by DLTHub</sub>
 </div>
