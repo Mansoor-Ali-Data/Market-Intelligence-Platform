@@ -3,27 +3,47 @@ eBay item enrichment ingestion source.
 
 Reads pending item IDs from the discovered_items Delta manifest
 and provides them to the dlt enrichment pipeline.
+
+Responsibilities
+----------------
+- Read pending item IDs.
+- Authenticate with eBay.
+- Create the dlt retry-enabled HTTP session.
+- Attach request-level observability.
+- Configure the eBay Item Details REST resource.
+- Allow dlt to handle retries, parallel execution, and raw loading.
+
+dlt owns:
+- OAuth integration
+- HTTP execution
+- retries
+- backoff
+- parallel execution
+- raw loading
 """
 
 import os
 
 import dlt
 import pandas as pd
+
 from deltalake import DeltaTable
+from dlt.sources.helpers.requests import Client
 from dlt.sources.rest_api import rest_api_source
 
-from ingestion.utils.gcp_auth import get_gcp_credentials_path
-from ingestion.utils.config_loader import load_config
-from ingestion.utils.ebay_request_logger import EbayRequestLoggingSession
-from ingestion.utils.project_paths import API_CONFIG_FILE, PROJECT_ROOT
-from ingestion.utils.logger import get_logger
-
 from ingestion.sources.ebay_auth import EbayAuth
+from ingestion.utils.config_loader import load_config
+from ingestion.utils.ebay_request_logger import (
+    EbayRequestLoggingSession,
+)
+from ingestion.utils.gcp_auth import get_gcp_credentials_path
+from ingestion.utils.logger import get_logger
+from ingestion.utils.project_paths import API_CONFIG_FILE
 
 
-# ============================================================================
+# =====================================================================
 # Constants
-# ============================================================================
+# =====================================================================
 
 CURATED_BUCKET = "market-intelligence-curated"
 
@@ -33,17 +53,19 @@ DISCOVERED_ITEMS_PATH = (
 
 logger = get_logger(__name__)
 
-# ============================================================
+
+# =====================================================================
 # Request Logging Session
-# ============================================================
+# =====================================================================
 
 _request_session: EbayRequestLoggingSession | None = None
 
 
 def log_request_summary() -> None:
     """
-    Log the request statistics collected during the enrichment run.
+    Log request statistics collected during the enrichment run.
     """
+
     if _request_session is None:
         logger.warning(
             "No eBay enrichment request session was initialized."
@@ -53,9 +75,9 @@ def log_request_summary() -> None:
     _request_session.stats.log_summary()
 
 
-# ============================================================================
-# Read pending items
-# ============================================================================
+# =====================================================================
+# Read Pending Items
+# =====================================================================
 
 def read_items_to_enrich(
     max_items: int | None = None,
@@ -76,7 +98,9 @@ def read_items_to_enrich(
     """
 
     storage_options = {
-        "google_application_credentials": get_gcp_credentials_path(),
+        "google_application_credentials": (
+            get_gcp_credentials_path()
+        ),
     }
 
     delta_table = DeltaTable(
@@ -97,7 +121,9 @@ def read_items_to_enrich(
     )
 
     if max_items is not None:
-        pending_items_df = pending_items_df.head(max_items)
+        pending_items_df = pending_items_df.head(
+            max_items,
+        )
 
     logger.info(
         "Pending enrichment items loaded | count=%s",
@@ -107,9 +133,9 @@ def read_items_to_enrich(
     return pending_items_df
 
 
-# ============================================================================
-# Parent resource
-# ============================================================================
+# =====================================================================
+# Parent Resource
+# =====================================================================
 
 @dlt.resource(name="pending_items")
 def pending_items(
@@ -124,7 +150,7 @@ def pending_items(
     )
 
     records = items_to_enrich.to_dict(
-        orient="records"
+        orient="records",
     )
 
     logger.info(
@@ -135,43 +161,48 @@ def pending_items(
     yield records
 
 
-# ============================================================================
-# eBay enrichment source
-# ============================================================================
+# =====================================================================
+# eBay Enrichment Source
+# =====================================================================
 
 @dlt.source(name="ebay_enrichment")
 def ebay_enrichment_source(
     max_items: int | None = None,
 ):
     """
-    Create the eBay item enrichment dlt source.
+    Create the eBay Item Details dlt source.
 
     dlt handles:
-    - OAuth
-    - HTTP requests
+    - HTTP execution
     - retries
+    - exponential backoff
     - parallel execution
     - raw loading
     """
 
-    # ------------------------------------------------------------------------
-    # Load configuration
-    # ------------------------------------------------------------------------
+    # -----------------------------------------------------------------
+    # Load Configuration
+    # -----------------------------------------------------------------
 
     api_config = load_config(
-        API_CONFIG_FILE
+        API_CONFIG_FILE,
     )
 
     api = api_config["api"]
     enrichment = api["enrichment"]
     auth_config = api_config["authentication"]
 
-    # ------------------------------------------------------------------------
-    # Validate OAuth configuration
-    # ------------------------------------------------------------------------
+    # -----------------------------------------------------------------
+    # Validate OAuth Configuration
+    # -----------------------------------------------------------------
 
-    client_id = os.getenv("EBAY_CLIENT_ID")
-    client_secret = os.getenv("EBAY_CLIENT_SECRET")
+    client_id = os.getenv(
+        "EBAY_CLIENT_ID",
+    )
+
+    client_secret = os.getenv(
+        "EBAY_CLIENT_SECRET",
+    )
 
     if not client_id:
         raise EnvironmentError(
@@ -183,9 +214,9 @@ def ebay_enrichment_source(
             "EBAY_CLIENT_SECRET is not configured."
         )
 
-    # ------------------------------------------------------------------------
+    # -----------------------------------------------------------------
     # Authentication
-    # ------------------------------------------------------------------------
+    # -----------------------------------------------------------------
 
     oauth = EbayAuth(
         client_id=client_id,
@@ -197,27 +228,48 @@ def ebay_enrichment_source(
         token_expiration=auth_config["token_expiration"],
     )
 
-    # ------------------------------------------------------------------------
-    # Request logging session
-    # ------------------------------------------------------------------------
+    # -----------------------------------------------------------------
+    # dlt Retry-Enabled Session
+    # -----------------------------------------------------------------
+    #
+    # Client creates a requests.Session whose send() method is
+    # wrapped by dlt's retry mechanism.
+    #
+    # By default dlt retries:
+    # - HTTP 429
+    # - HTTP 5xx
+    # - connection errors
+    # - timeout errors
+    #
+    # We preserve that session and attach our observability
+    # wrapper to it.
+    # -----------------------------------------------------------------
+
+    retry_client = Client(
+        raise_for_status= False,
+    )
+
+    retry_session = retry_client.session
 
     global _request_session
 
-    _request_session = EbayRequestLoggingSession()
+    _request_session = EbayRequestLoggingSession(
+        session=retry_session,
+    )
 
-    # ------------------------------------------------------------------------
-    # dlt REST API client
-    # ------------------------------------------------------------------------
+    # -----------------------------------------------------------------
+    # REST API Client Configuration
+    # -----------------------------------------------------------------
 
     client_config = {
         "base_url": api["base_url"],
         "auth": oauth,
-        "session": _request_session,
+        "session": retry_session,
     }
 
-    # ------------------------------------------------------------------------
-    # Convert API endpoint placeholder into dlt dependency placeholder
-    # ------------------------------------------------------------------------
+    # -----------------------------------------------------------------
+    # Convert API Endpoint Placeholder
+    # -----------------------------------------------------------------
 
     endpoint_template = enrichment["endpoint"]
 
@@ -232,17 +284,33 @@ def ebay_enrichment_source(
         "{resources.pending_items.item_id}",
     )
 
-    # ------------------------------------------------------------------------
-    # Item details resource
-    # ------------------------------------------------------------------------
+    # -----------------------------------------------------------------
+    # Item Details Resource
+    # -----------------------------------------------------------------
 
     item_details_resource = {
         "name": "item_details",
+
         "parallelized": True,
+
+        "columns": {
+            "product_safety_labels__pictograms": {
+                "data_type": "text",
+            },
+            "product_safety_labels__statements": {
+                "data_type": "text",
+            },
+        },
+
         "endpoint": {
             "path": item_details_path,
             "method": enrichment["method"],
             "data_selector": enrichment["data_selector"],
+
+            # ---------------------------------------------------------
+            # Item-level disappearance is not a pipeline failure.
+            # ---------------------------------------------------------
+
             "response_actions": [
                 {
                     "status_code": 404,
@@ -252,14 +320,17 @@ def ebay_enrichment_source(
         },
     }
 
-    # ------------------------------------------------------------------------
-    # REST API source configuration
-    # ------------------------------------------------------------------------
+    # -----------------------------------------------------------------
+    # REST API Source Configuration
+    # -----------------------------------------------------------------
 
     rest_api_config = {
         "client": client_config,
+
         "resources": [
-            pending_items(max_items=max_items),
+            pending_items(
+                max_items=max_items,
+            ),
             item_details_resource,
         ],
     }
