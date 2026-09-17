@@ -887,10 +887,14 @@ dependencies = [
     { name = "numpy" },
     { name = "pandas" },
     { name = "pyarrow" },
-    { name = "pytest" },
     { name = "python-dotenv" },
     { name = "requests" },
     { name = "ruamel-yaml" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
 ]
 
 [package.metadata]
@@ -900,11 +904,13 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.2,<2.3" },
     { name = "pandas", specifier = ">=2.2,<2.3" },
     { name = "pyarrow", specifier = ">=25.0.1" },
-    { name = "pytest", specifier = ">=9.1.1" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "requests", specifier = ">=2.34.2" },
     { name = "ruamel-yaml", specifier = ">=0.19.1" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.1.1" }]
 
 [[package]]
 name = "iniconfig"
