@@ -1,3 +1,15 @@
+"""
+Unit tests for the data extraction window utilities.
+
+Responsibilities
+----------------
+- Validate deterministic UTC daily extraction windows.
+- Validate day-boundary calculations.
+- Validate month-boundary handling.
+- Validate year-boundary handling.
+- Validate that each extraction window represents exactly one day.
+"""
+
 from datetime import date
 
 from ingestion.utils.data_window import (

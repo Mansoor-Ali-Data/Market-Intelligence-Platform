@@ -1,3 +1,15 @@
+"""
+Unit tests for the configuration loader.
+
+Responsibilities
+----------------
+- Validate YAML configuration loading.
+- Validate handling of missing and invalid configuration files.
+- Validate enabled/disabled category filtering.
+- Validate enabled/disabled subcategory filtering.
+- Validate enabled/disabled query filtering.
+"""
+
 from pathlib import Path
 
 import pytest
