@@ -25,6 +25,7 @@ from dotenv import load_dotenv
 
 from dlt.sources.rest_api import rest_api_source
 from dlt.sources.helpers.rest_client.paginators import OffsetPaginator
+from dlt.sources.helpers.requests import Client
 
 from ingestion.sources.ebay_auth import EbayAuth
 
@@ -257,16 +258,24 @@ def ebay_source(extraction_date: date):
         api["marketplace_id"],
     )
 
-    # --------------------------------------------------------
+    # ============================================================
     # API Client
-    # --------------------------------------------------------
+    # ============================================================
 
-    _request_session = EbayRequestLoggingSession()
+    retry_client = Client(
+        raise_for_status=False,
+    )
+
+    retry_session = retry_client.session
+
+    _request_session = EbayRequestLoggingSession(
+        session=retry_session,
+    )
 
     client_config = {
         "base_url": api["base_url"],
         "auth": oauth,
-        "session": _request_session,
+        "session": retry_session,
     }
 
     logger.info(
