@@ -300,27 +300,23 @@ def test_pending_items_generates_item_id_records(
         }
     )
 
+    resource = enrichment_module.pending_items(
+        max_items=2,
+    )
+
     # ---------------------------------------------------------------
     # Act
     # ---------------------------------------------------------------
 
-    records = list(
-        enrichment_module.pending_items._pipe(
-            enrichment_module.pending_items(
-                max_items=2,
-            )
-        )
-    )
+    records = list(resource)
 
     # ---------------------------------------------------------------
     # Assert
     # ---------------------------------------------------------------
 
     assert records == [
-        [
-            {"item_id": "ITEM-001"},
-            {"item_id": "ITEM-002"},
-        ]
+        {"item_id": "ITEM-001"},
+        {"item_id": "ITEM-002"},
     ]
 
     mock_read_items.assert_called_once_with(
@@ -868,8 +864,8 @@ def test_invalid_enrichment_endpoint_is_rejected(
         with pytest.raises(
             ValueError,
             match=(
-                "Enrichment endpoint must contain "
-                "'\\{item_id\\}' placeholder."
+                r"Enrichment endpoint must contain the "
+                r"'\{item_id\}' placeholder\."
             ),
         ):
             enrichment_module.ebay_enrichment_source._deco_f(
