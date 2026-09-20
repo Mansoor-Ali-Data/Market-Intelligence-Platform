@@ -98,7 +98,7 @@ def read_items_to_enrich(
     """
 
     storage_options = {
-        "google_application_credentials": (
+        "application_credentials": (
             get_gcp_credentials_path()
         ),
     }
